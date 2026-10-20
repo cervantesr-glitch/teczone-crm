@@ -8,8 +8,12 @@ Resumen de la propuesta aprobada para la fase 1 (web). El documento completo, co
 | --- | --- | --- |
 | `apps/web` | Next.js 15, Tailwind CSS 4 | Interfaz. Solo consume la API; `/api/*` se reenvía a la API para compartir origen y cookies. |
 | `apps/api` | NestJS 11, REST + OpenAPI (`/docs`) | Toda la lógica de negocio. La misma API servirá a la app móvil. |
-| `packages/db` | Prisma 6, PostgreSQL 16 | Esquema, migraciones y datos iniciales. |
+| `packages/db` | Prisma 6, MySQL 8 / MariaDB (Hostinger) | Esquema, migraciones y datos iniciales. |
 | `packages/shared` | TypeScript, Zod | Roles, estados y validaciones compartidas por web, API y la futura app móvil. |
+
+## Alojamiento
+
+Hostinger, plan de apps web Node.js con MySQL administrado (decisión del 20 oct 2026). Web y API se publican como dos apps. Como no hay proceso aparte para tareas en segundo plano, las alertas (SLA de leads, renovaciones) correrán como tareas programadas dentro de la API (`@nestjs/schedule`), con registro en base de datos para no duplicar avisos (RN-12).
 
 ## Sesión
 

@@ -7,12 +7,21 @@ import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 // Requiere una base de pruebas migrada (su nombre debe contener "test"): las tablas se vacían.
-if (!/test/.test(new URL(process.env.DATABASE_URL ?? 'postgresql://x/').pathname)) {
+if (!/test/.test(new URL(process.env.DATABASE_URL ?? 'mysql://x/').pathname)) {
   throw new Error('DATABASE_URL debe apuntar a una base de pruebas (p. ej. teczone_crm_test)');
 }
 process.env.JWT_ACCESS_SECRET ??= 'test-secret';
 // Estas pruebas inician sesión muchas veces; se levanta el límite por minuto.
 process.env.LOGIN_RATE_LIMIT = '1000';
+
+async function resetDatabase(prisma: PrismaService) {
+  const tables = ['user_roles', 'refresh_tokens', 'audit_log', 'lead_status_history', 'activities', 'leads', 'users'];
+  await prisma.$transaction([
+    prisma.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 0'),
+    ...tables.map((t) => prisma.$executeRawUnsafe(`TRUNCATE TABLE ${t}`)),
+    prisma.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 1'),
+  ]);
+}
 
 const ADMIN = { email: 'admin@test.mx', password: 'Admin12345!' };
 const SELLER = { email: 'ventas@test.mx', password: 'Ventas12345!' };
@@ -28,9 +37,7 @@ describe('Autenticación y roles (e2e)', () => {
     await app.init();
     prisma = app.get(PrismaService);
 
-    await prisma.$executeRawUnsafe(
-      'TRUNCATE users, user_roles, refresh_tokens, audit_log, leads, lead_status_history, activities CASCADE',
-    );
+    await resetDatabase(prisma);
     await prisma.user.create({
       data: {
         email: ADMIN.email,
