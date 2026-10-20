@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: crm
+          POSTGRES_PASSWORD: crm
+          POSTGRES_DB: teczone_crm_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U crm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://crm:crm@localhost:5432/teczone_crm_test
+      JWT_ACCESS_SECRET: ci-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @teczone/shared build
+      - run: pnpm --filter @teczone/db build
+      - run: pnpm db:deploy
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm --filter @teczone/api build
+      - run: pnpm --filter @teczone/web build
