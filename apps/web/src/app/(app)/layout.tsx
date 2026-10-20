@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { canSeeLeads, isAdmin } from '@/lib/permissions';
+import { canSeeAccounts, canSeeLeads, canSeeOpportunities, isAdmin } from '@/lib/permissions';
 import { SessionContext } from '@/lib/session';
 import type { SessionUser } from '@/lib/types';
 
@@ -13,6 +13,8 @@ import type { SessionUser } from '@/lib/types';
 const NAV: { href: string; label: string; ready: boolean; show?: (u: SessionUser) => boolean }[] = [
   { href: '/', label: 'Inicio', ready: true },
   { href: '/leads', label: 'Leads', ready: true, show: canSeeLeads },
+  { href: '/oportunidades', label: 'Oportunidades', ready: true, show: canSeeOpportunities },
+  { href: '/cuentas', label: 'Cuentas', ready: true, show: canSeeAccounts },
   { href: '/cotizaciones', label: 'Cotizaciones', ready: false },
   { href: '/contratos', label: 'Contratos de servicio', ready: false },
   { href: '/usuarios', label: 'Usuarios', ready: true, show: isAdmin },

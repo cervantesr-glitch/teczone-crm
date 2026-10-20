@@ -12,3 +12,13 @@ export const canAssignLeads = (u: SessionUser | null) => has(u, ['ADMIN', 'GEREN
 export const hasFullLeadAccess = (u: SessionUser | null) => has(u, LEAD_FULL_ACCESS_ROLES);
 export const isAdmin = (u: SessionUser | null) => has(u, ['ADMIN']);
 export const isSeller = (u: SessionUser | null) => has(u, ['EJECUTIVO_PYME', 'EJECUTIVO_TECH', 'GERENTE_COMERCIAL']);
+// Cuentas y oportunidades (apps/api/src/common/access.ts).
+export const canSeeAccounts = (u: SessionUser | null) =>
+  has(u, ['ADMIN', 'DIRECCION', 'GERENTE_COMERCIAL', 'EJECUTIVO_PYME', 'EJECUTIVO_TECH', 'PREVENTA', 'CUSTOMER_SUCCESS']);
+export const canWriteAccounts = (u: SessionUser | null) =>
+  has(u, ['ADMIN', 'GERENTE_COMERCIAL', 'EJECUTIVO_PYME', 'EJECUTIVO_TECH', 'CUSTOMER_SUCCESS']);
+export const canSeeOpportunities = (u: SessionUser | null) =>
+  has(u, ['ADMIN', 'DIRECCION', 'GERENTE_COMERCIAL', 'EJECUTIVO_PYME', 'EJECUTIVO_TECH', 'PREVENTA']);
+export const isManager = (u: SessionUser | null) => has(u, ['ADMIN', 'GERENTE_COMERCIAL']);
+export const canEditOpportunity = (u: SessionUser | null, ownerId: string) =>
+  isManager(u) || (has(u, ['EJECUTIVO_PYME', 'EJECUTIVO_TECH']) && u?.id === ownerId);

@@ -33,13 +33,16 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  roles         UserRole[]
-  refreshTokens RefreshToken[]
-  ownedLeads    Lead[]              @relation("LeadOwner")
-  createdLeads  Lead[]              @relation("LeadCreator")
-  statusChanges LeadStatusHistory[]
-  activities    Activity[]          @relation("ActivityOwner")
-  auditEntries  AuditLog[]
+  roles              UserRole[]
+  refreshTokens      RefreshToken[]
+  ownedLeads         Lead[]                    @relation("LeadOwner")
+  createdLeads       Lead[]                    @relation("LeadCreator")
+  statusChanges      LeadStatusHistory[]
+  activities         Activity[]                @relation("ActivityOwner")
+  auditEntries       AuditLog[]
+  ownedAccounts      Account[]                 @relation("AccountOwner")
+  ownedOpportunities Opportunity[]             @relation("OpportunityOwner")
+  stageChanges       OpportunityStageHistory[]
 
   @@map("users")
 }
@@ -154,7 +157,6 @@ model Lead {
   disqualificationReasonId String?   @map("disqualification_reason_id") @db.Char(36)
   disqualificationNotes    String?   @map("disqualification_notes") @db.Text
   convertedAt              DateTime? @map("converted_at")
-  // Se ligarán a accounts/contacts/opportunities cuando existan esas tablas.
   convertedAccountId       String?   @map("converted_account_id") @db.Char(36)
   convertedContactId       String?   @map("converted_contact_id") @db.Char(36)
   convertedOpportunityId   String?   @map("converted_opportunity_id") @db.Char(36)
@@ -168,6 +170,9 @@ model Lead {
   createdBy              User                    @relation("LeadCreator", fields: [createdById], references: [id])
   source                 LeadSource              @relation(fields: [sourceId], references: [id])
   disqualificationReason DisqualificationReason? @relation(fields: [disqualificationReasonId], references: [id])
+  convertedAccount       Account?                @relation(fields: [convertedAccountId], references: [id])
+  convertedContact       Contact?                @relation(fields: [convertedContactId], references: [id])
+  convertedOpportunity   Opportunity?            @relation("LeadConversion", fields: [convertedOpportunityId], references: [id])
   productsOfInterest     LeadProductInterest[]
   statusHistory          LeadStatusHistory[]
   tags                   LeadTag[]
@@ -222,6 +227,133 @@ model LeadTag {
 
   @@id([leadId, tagId])
   @@map("lead_tags")
+}
+
+// ───────────── Cuentas, contactos y oportunidades (BRD v1.1, FR-01, FR-02, FR-25) ─────────────
+
+model Account {
+  id          String    @id @default(uuid()) @db.Char(36)
+  name        String
+  legalName   String?   @map("legal_name")
+  rfc         String?   @unique
+  industry    String?
+  companySize String?   @map("company_size")
+  phone       String?
+  website     String?
+  city        String?
+  state       String?
+  notes       String?   @db.Text
+  ownerId     String?   @map("owner_id") @db.Char(36)
+  createdById String    @map("created_by_id") @db.Char(36)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  owner         User?         @relation("AccountOwner", fields: [ownerId], references: [id])
+  contacts      Contact[]
+  opportunities Opportunity[]
+  leads         Lead[]
+
+  @@index([name])
+  @@map("accounts")
+}
+
+// Rol en el comité de compra (BRD FR-01).
+enum DecisionRole {
+  ECONOMICO
+  TECNICO
+  USUARIO
+  OTRO
+}
+
+model Contact {
+  id              String        @id @default(uuid()) @db.Char(36)
+  accountId       String        @map("account_id") @db.Char(36)
+  name            String
+  title           String?
+  email           String?
+  phone           String?
+  phoneNormalized String?       @map("phone_normalized")
+  whatsapp        String?
+  decisionRole    DecisionRole? @map("decision_role")
+  isPrimary       Boolean       @default(false) @map("is_primary")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  account       Account       @relation(fields: [accountId], references: [id])
+  opportunities Opportunity[]
+  leads         Lead[]
+
+  @@index([accountId])
+  @@index([email])
+  @@map("contacts")
+}
+
+enum Pipeline {
+  PYME
+  SOLUCIONES
+}
+
+// Etapas de ambos pipelines (BRD 2 y 7.4); cada pipeline usa su subconjunto (packages/shared).
+enum OpportunityStage {
+  SOLICITUD
+  COSTEO_MARGEN
+  COTIZACION_ENVIADA
+  NEGOCIACION
+  CALIFICACION
+  DISCOVERY
+  DEMO_POC
+  PROPUESTA_SOW
+  NEGOCIACION_SLA
+  GANADA
+  PERDIDA
+}
+
+model Opportunity {
+  id                String           @id @default(uuid()) @db.Char(36)
+  folioNumber       Int              @unique @default(autoincrement()) @map("folio_number")
+  name              String
+  pipeline          Pipeline
+  stage             OpportunityStage
+  accountId         String           @map("account_id") @db.Char(36)
+  primaryContactId  String?          @map("primary_contact_id") @db.Char(36)
+  ownerId           String           @map("owner_id") @db.Char(36)
+  amount            Decimal?         @db.Decimal(14, 2)
+  currency          Currency?
+  probability       Int?
+  expectedCloseDate DateTime?        @map("expected_close_date") @db.Date
+  closedAt          DateTime?        @map("closed_at")
+  lostReason        String?          @map("lost_reason") @db.Text
+  createdById       String           @map("created_by_id") @db.Char(36)
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  deletedAt         DateTime?        @map("deleted_at")
+
+  account        Account                   @relation(fields: [accountId], references: [id])
+  primaryContact Contact?                  @relation(fields: [primaryContactId], references: [id])
+  owner          User                      @relation("OpportunityOwner", fields: [ownerId], references: [id])
+  sourceLeads    Lead[]                    @relation("LeadConversion")
+  stageHistory   OpportunityStageHistory[]
+
+  @@index([pipeline, stage])
+  @@index([ownerId])
+  @@map("opportunities")
+}
+
+model OpportunityStageHistory {
+  id            String            @id @default(uuid()) @db.Char(36)
+  opportunityId String            @map("opportunity_id") @db.Char(36)
+  fromStage     OpportunityStage? @map("from_stage")
+  toStage       OpportunityStage  @map("to_stage")
+  userId        String            @map("user_id") @db.Char(36)
+  comment       String?           @db.Text
+  createdAt     DateTime          @default(now()) @map("created_at")
+  opportunity   Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  user          User              @relation(fields: [userId], references: [id])
+
+  @@index([opportunityId])
+  @@map("opportunity_stage_history")
 }
 
 // ───────────── Actividades y auditoría (compartidas por todos los módulos) ─────────────

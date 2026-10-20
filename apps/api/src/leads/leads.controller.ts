@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, P
 import {
   assignLeadSchema,
   changeLeadStatusSchema,
+  convertLeadSchema,
   createActivitySchema,
   createLeadSchema,
   duplicateCheckSchema,
@@ -9,6 +10,7 @@ import {
   qualificationSchema,
   updateLeadSchema,
   type ChangeLeadStatusInput,
+  type ConvertLeadInput,
   type CreateActivityInput,
   type CreateLeadInput,
   type DuplicateCheckInput,
@@ -84,6 +86,17 @@ export class LeadsController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.leads.changeStatus(id, body, user);
+  }
+
+  @Roles(...LEAD_WRITE_ROLES)
+  @Post(':id/convert')
+  @HttpCode(200)
+  convert(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(convertLeadSchema)) body: ConvertLeadInput,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.leads.convert(id, body, user);
   }
 
   @Roles(...LEAD_WRITE_ROLES)
