@@ -127,17 +127,19 @@ model Lead {
   sourceId     String           @map("source_id") @db.Char(36)
   receivedAt   DateTime         @default(now()) @map("received_at")
 
-  companyName  String  @map("company_name")
-  rfc          String?
-  industry     String?
-  companySize  String? @map("company_size")
-  contactName  String  @map("contact_name")
-  contactTitle String? @map("contact_title")
-  email        String?
-  phone        String?
-  whatsapp     String?
-  city         String?
-  state        String?
+  companyName     String  @map("company_name")
+  rfc             String?
+  industry        String?
+  companySize     String? @map("company_size")
+  contactName     String  @map("contact_name")
+  contactTitle    String? @map("contact_title")
+  email           String?
+  phone           String?
+  // Últimos 10 dígitos de phone, para detectar duplicados.
+  phoneNormalized String? @map("phone_normalized")
+  whatsapp        String?
+  city            String?
+  state           String?
 
   need                 String?   @db.Text
   estimatedBudget      Decimal?  @map("estimated_budget") @db.Decimal(14, 2)
@@ -173,7 +175,8 @@ model Lead {
   @@index([status])
   @@index([ownerId])
   @@index([email])
-  @@index([phone])
+  @@index([phoneNormalized])
+  @@index([companyName])
   @@index([rfc])
   @@map("leads")
 }

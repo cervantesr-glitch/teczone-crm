@@ -5,6 +5,7 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     public errors?: { field: string; message: string }[],
+    public body?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -40,7 +41,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, body.message ?? 'Ocurrió un error', body.errors);
+    throw new ApiError(res.status, body.message ?? 'Ocurrió un error', body.errors, body);
   }
   return (res.status === 204 ? undefined : await res.json()) as T;
 }

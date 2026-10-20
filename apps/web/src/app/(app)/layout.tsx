@@ -5,15 +5,17 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { canSeeLeads, isAdmin } from '@/lib/permissions';
 import { SessionContext } from '@/lib/session';
 import type { SessionUser } from '@/lib/types';
 
 // Orden de entregas del BRD v1.1. Los módulos se activan conforme se construyen.
-const NAV = [
+const NAV: { href: string; label: string; ready: boolean; show?: (u: SessionUser) => boolean }[] = [
   { href: '/', label: 'Inicio', ready: true },
-  { href: '/leads', label: 'Leads', ready: false },
+  { href: '/leads', label: 'Leads', ready: true, show: canSeeLeads },
   { href: '/cotizaciones', label: 'Cotizaciones', ready: false },
   { href: '/contratos', label: 'Contratos de servicio', ready: false },
+  { href: '/usuarios', label: 'Usuarios', ready: true, show: isAdmin },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -40,13 +42,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <aside className="border-b border-slate-200 bg-white md:w-60 md:border-b-0 md:border-r">
           <div className="px-5 py-4 text-lg font-semibold text-brand">TecZone CRM</div>
           <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col">
-            {NAV.map((item) =>
+            {NAV.filter((item) => !item.show || item.show(user)).map((item) =>
               item.ready ? (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`whitespace-nowrap rounded-md px-3 py-2 text-sm ${
-                    pathname === item.href ? 'bg-brand text-white' : 'hover:bg-slate-100'
+                    (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)) ? 'bg-brand text-white' : 'hover:bg-slate-100'
                   }`}
                 >
                   {item.label}
@@ -60,7 +62,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </nav>
         </aside>
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <header className="flex items-center justify-end gap-4 border-b border-slate-200 bg-white px-6 py-3">
             <div className="text-right text-sm">
               <div className="font-medium">{user.name}</div>
