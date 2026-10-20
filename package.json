@@ -1,0 +1,17 @@
+{
+  "name": "teczone-crm",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter ./apps/* dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:migrate": "pnpm --filter @teczone/db migrate:dev",
+    "db:deploy": "pnpm --filter @teczone/db migrate:deploy",
+    "db:seed": "pnpm --filter @teczone/db seed"
+  }
+}

@@ -1,0 +1,269 @@
+// Esquema de la entrega 1 (leads). BRD v1.1, secciones 7.1, 8 y 10.
+// MySQL de Hostinger (compatible con MariaDB).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────── Usuarios y roles ─────────────
+
+enum Role {
+  ADMIN
+  DIRECCION
+  GERENTE_COMERCIAL
+  EJECUTIVO_PYME
+  EJECUTIVO_TECH
+  PREVENTA
+  CUSTOMER_SUCCESS
+  COMPRAS_OPERACIONES
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Char(36)
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  roles         UserRole[]
+  refreshTokens RefreshToken[]
+  ownedLeads    Lead[]              @relation("LeadOwner")
+  createdLeads  Lead[]              @relation("LeadCreator")
+  statusChanges LeadStatusHistory[]
+  activities    Activity[]          @relation("ActivityOwner")
+  auditEntries  AuditLog[]
+
+  @@map("users")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Char(36)
+  role   Role
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Char(36)
+  userId    String    @map("user_id") @db.Char(36)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ───────────── Catálogos ─────────────
+
+model LeadSource {
+  id     String  @id @default(uuid()) @db.Char(36)
+  name   String  @unique
+  active Boolean @default(true)
+  leads  Lead[]
+
+  @@map("lead_sources")
+}
+
+model DisqualificationReason {
+  id     String  @id @default(uuid()) @db.Char(36)
+  name   String  @unique
+  active Boolean @default(true)
+  leads  Lead[]
+
+  @@map("disqualification_reasons")
+}
+
+model Tag {
+  id    String    @id @default(uuid()) @db.Char(36)
+  name  String    @unique
+  color String?
+  leads LeadTag[]
+
+  @@map("tags")
+}
+
+// ───────────── Leads ─────────────
+
+enum LeadStatus {
+  NUEVO
+  CONTACTADO
+  EN_CALIFICACION
+  CALIFICADO
+  DESCALIFICADO
+  CONVERTIDO
+}
+
+enum LeadInterestType {
+  PYME
+  SOLUCIONES
+  POR_DEFINIR
+}
+
+enum Currency {
+  MXN
+  USD
+}
+
+model Lead {
+  id           String           @id @default(uuid()) @db.Char(36)
+  // Folio legible LD-000123, generado desde la secuencia folio_number.
+  folioNumber  Int              @unique @default(autoincrement()) @map("folio_number")
+  status       LeadStatus       @default(NUEVO)
+  interestType LeadInterestType @default(POR_DEFINIR) @map("interest_type")
+  ownerId      String?          @map("owner_id") @db.Char(36)
+  sourceId     String           @map("source_id") @db.Char(36)
+  receivedAt   DateTime         @default(now()) @map("received_at")
+
+  companyName  String  @map("company_name")
+  rfc          String?
+  industry     String?
+  companySize  String? @map("company_size")
+  contactName  String  @map("contact_name")
+  contactTitle String? @map("contact_title")
+  email        String?
+  phone        String?
+  whatsapp     String?
+  city         String?
+  state        String?
+
+  need                 String?   @db.Text
+  estimatedBudget      Decimal?  @map("estimated_budget") @db.Decimal(14, 2)
+  currency             Currency?
+  expectedPurchaseDate DateTime? @map("expected_purchase_date") @db.Date
+  // Criterios de calificación (BANT u otros, D16) y puntuación 0-100.
+  qualification        Json?
+  score                Int?
+
+  firstContactDueAt        DateTime? @map("first_contact_due_at")
+  firstContactAt           DateTime? @map("first_contact_at")
+  disqualificationReasonId String?   @map("disqualification_reason_id") @db.Char(36)
+  disqualificationNotes    String?   @map("disqualification_notes") @db.Text
+  convertedAt              DateTime? @map("converted_at")
+  // Se ligarán a accounts/contacts/opportunities cuando existan esas tablas.
+  convertedAccountId       String?   @map("converted_account_id") @db.Char(36)
+  convertedContactId       String?   @map("converted_contact_id") @db.Char(36)
+  convertedOpportunityId   String?   @map("converted_opportunity_id") @db.Char(36)
+
+  createdById String    @map("created_by_id") @db.Char(36)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  owner                  User?                   @relation("LeadOwner", fields: [ownerId], references: [id])
+  createdBy              User                    @relation("LeadCreator", fields: [createdById], references: [id])
+  source                 LeadSource              @relation(fields: [sourceId], references: [id])
+  disqualificationReason DisqualificationReason? @relation(fields: [disqualificationReasonId], references: [id])
+  productsOfInterest     LeadProductInterest[]
+  statusHistory          LeadStatusHistory[]
+  tags                   LeadTag[]
+
+  @@index([status])
+  @@index([ownerId])
+  @@index([email])
+  @@index([phone])
+  @@index([rfc])
+  @@map("leads")
+}
+
+enum ProductCategory {
+  HARDWARE
+  SOFTWARE
+  SERVICIOS
+}
+
+model LeadProductInterest {
+  id          String          @id @default(uuid()) @db.Char(36)
+  leadId      String          @map("lead_id") @db.Char(36)
+  category    ProductCategory
+  description String
+  quantity    Int?
+  lead        Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("lead_products_interest")
+}
+
+model LeadStatusHistory {
+  id         String      @id @default(uuid()) @db.Char(36)
+  leadId     String      @map("lead_id") @db.Char(36)
+  fromStatus LeadStatus? @map("from_status")
+  toStatus   LeadStatus  @map("to_status")
+  userId     String      @map("user_id") @db.Char(36)
+  comment    String?     @db.Text
+  createdAt  DateTime    @default(now()) @map("created_at")
+  lead       Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id])
+
+  @@index([leadId])
+  @@map("lead_status_history")
+}
+
+model LeadTag {
+  leadId String @map("lead_id") @db.Char(36)
+  tagId  String @map("tag_id") @db.Char(36)
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([leadId, tagId])
+  @@map("lead_tags")
+}
+
+// ───────────── Actividades y auditoría (compartidas por todos los módulos) ─────────────
+
+enum ActivityType {
+  LLAMADA
+  REUNION
+  CORREO
+  WHATSAPP
+  NOTA
+  TAREA
+}
+
+model Activity {
+  id          String       @id @default(uuid()) @db.Char(36)
+  type        ActivityType
+  subject     String
+  description String?      @db.Text
+  // Fecha del evento (cuando ocurrió) vs. createdAt (cuando se capturó), FR-08.
+  occurredAt  DateTime?    @map("occurred_at")
+  dueAt       DateTime?    @map("due_at")
+  completedAt DateTime?    @map("completed_at")
+  ownerId     String       @map("owner_id") @db.Char(36)
+  // Relación polimórfica: lead, account, opportunity, quote, contract.
+  relatedType String       @map("related_type")
+  relatedId   String       @map("related_id") @db.Char(36)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  owner       User         @relation("ActivityOwner", fields: [ownerId], references: [id])
+
+  @@index([relatedType, relatedId])
+  @@index([ownerId, dueAt])
+  @@map("activities")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Char(36)
+  entity    String
+  entityId  String?  @map("entity_id")
+  action    String
+  changes   Json?
+  userId    String?  @map("user_id") @db.Char(36)
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@map("audit_log")
+}

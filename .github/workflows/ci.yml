@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_USER: crm
+          MYSQL_PASSWORD: crm
+          MYSQL_DATABASE: teczone_crm_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: mysql://crm:crm@127.0.0.1:3306/teczone_crm_test
+      JWT_ACCESS_SECRET: ci-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @teczone/shared build
+      - run: pnpm --filter @teczone/db build
+      - run: pnpm db:deploy
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm --filter @teczone/api build
+      - run: pnpm --filter @teczone/web build
