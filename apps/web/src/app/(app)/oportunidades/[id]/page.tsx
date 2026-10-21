@@ -2,9 +2,10 @@
 
 import { CLOSED_STAGES, PIPELINE_LABELS, PIPELINE_STAGES, STAGE_LABELS, type OpportunityStage } from '@teczone/shared';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Activities } from '@/components/activities';
+import { QuoteStatusBadge } from '@/components/quote-badge';
 import { StageBadge } from '@/components/stage-badge';
 import { Button, Card, ErrorText, Field, Input, Modal, Select, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -28,6 +29,7 @@ interface EditForm {
 export default function OpportunityPage() {
   const { id } = useParams<{ id: string }>();
   const user = useSession();
+  const router = useRouter();
   const [opp, setOpp] = useState<OpportunityDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditForm | null>(null);
@@ -60,6 +62,15 @@ export default function OpportunityPage() {
       await load();
     } catch (e) {
       setError(errorMessage(e, 'No se pudo cambiar la etapa'));
+    }
+  }
+
+  async function newQuote() {
+    try {
+      const q = await api<{ id: string }>('/quotes', { method: 'POST', body: JSON.stringify({ opportunityId: id }) });
+      router.push(`/cotizaciones/${q.id}`);
+    } catch (e) {
+      setError(errorMessage(e, 'No se pudo crear la cotización'));
     }
   }
 
@@ -163,6 +174,36 @@ export default function OpportunityPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          <Card
+            title="Cotizaciones"
+            actions={
+              editable &&
+              !closed && (
+                <Button variant="ghost" onClick={newQuote}>
+                  Nueva cotización
+                </Button>
+              )
+            }
+          >
+            {opp.quotes.length ? (
+              <ul className="divide-y divide-slate-100">
+                {opp.quotes.map((q) => (
+                  <li key={q.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <Link href={`/cotizaciones/${q.id}`} className="font-mono text-brand hover:underline">
+                      {q.folio} v{q.version.number}
+                    </Link>
+                    <div className="flex items-center gap-3">
+                      <span className="text-slate-500">Margen {Number(q.version.marginPct).toFixed(1)}%</span>
+                      <span>{formatMoney(q.version.total, q.version.currency)}</span>
+                      <QuoteStatusBadge status={q.status} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500">Sin cotizaciones.</p>
+            )}
+          </Card>
           <Activities
             basePath={`/opportunities/${id}`}
             activities={opp.activities}

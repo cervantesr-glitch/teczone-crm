@@ -12,6 +12,9 @@ import { HealthController } from './health.controller';
 import { LeadsModule } from './leads/leads.module';
 import { OpportunitiesModule } from './opportunities/opportunities.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ProductsModule } from './products/products.module';
+import { QuotesModule } from './quotes/quotes.module';
+import { SettingsModule } from './settings/settings.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -26,6 +29,9 @@ import { UsersModule } from './users/users.module';
     LeadsModule,
     AccountsModule,
     OpportunitiesModule,
+    SettingsModule,
+    ProductsModule,
+    QuotesModule,
   ],
   controllers: [HealthController],
   providers: [

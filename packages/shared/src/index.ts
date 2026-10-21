@@ -4,3 +4,4 @@ export * from './lead-schemas';
 export * from './business-hours';
 export * from './opportunities';
 export * from './auth';
+export * from './quotes';

@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   CLOSED_STAGES,
+  formatQuoteFolio,
   STAGE_PROBABILITY,
   stageBelongsTo,
   type ChangeStageInput,
@@ -80,6 +81,13 @@ export class OpportunitiesService {
         account: { include: { contacts: { where: { deletedAt: null }, orderBy: { name: 'asc' } } } },
         stageHistory: { include: { user: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' } },
         sourceLeads: { select: { id: true, folioNumber: true } },
+        quotes: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            versions: { orderBy: { number: 'desc' }, take: 1, select: { number: true, currency: true, total: true, marginPct: true } },
+          },
+        },
       },
     });
     if (!opp) throw new NotFoundException('Oportunidad no encontrada');
@@ -91,6 +99,7 @@ export class OpportunitiesService {
       ...opp,
       folio: formatOpportunityFolio(opp.folioNumber),
       sourceLeads: opp.sourceLeads.map((l) => ({ id: l.id, folio: `LD-${String(l.folioNumber).padStart(6, '0')}` })),
+      quotes: opp.quotes.map(({ versions, ...q }) => ({ ...q, folio: formatQuoteFolio(q.folioNumber), version: versions[0] })),
       activities,
       nextAction: next ? { id: next.id, subject: next.subject, dueAt: next.dueAt } : null,
     };
