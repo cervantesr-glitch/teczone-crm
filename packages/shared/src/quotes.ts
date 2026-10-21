@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { mxPeriodStarts } from './dates';
 import { CURRENCIES, PRODUCT_CATEGORIES } from './lead-schemas';
 
 // Estados de cotización propuestos en el BRD v1.1 (sección 7.4). "Sustituida" se
@@ -247,3 +248,52 @@ export type CreateQuoteInput = z.infer<typeof createQuoteSchema>;
 export type SendQuoteInput = z.infer<typeof sendQuoteSchema>;
 export type QuoteOutcomeInput = z.infer<typeof quoteOutcomeSchema>;
 export type QuoteListQuery = z.infer<typeof quoteListQuerySchema>;
+
+// Resultado de cotizaciones para el tablero de inicio (FR-10, RN-10; fórmulas por confirmar en D15).
+// Ganada = cotización Aceptada; perdida = Rechazada. Las vencidas no cuentan como perdidas y una
+// versión nueva reabre la cotización, así que deja de contar. El periodo se toma de la fecha de
+// cierre real (closedAt) en hora de Ciudad de México. El importe es el subtotal sin IVA de la
+// versión vigente; las de USD se convierten a MXN con el tipo de cambio guardado en esa versión.
+export const WON_QUOTE_STATUS = 'ACEPTADA' satisfies QuoteStatus;
+export const LOST_QUOTE_STATUS = 'RECHAZADA' satisfies QuoteStatus;
+
+export interface ClosedQuoteRow {
+  status: QuoteStatus;
+  closedAt: Date;
+  currency: (typeof CURRENCIES)[number];
+  exchangeRate: number;
+  subtotal: number;
+}
+
+export interface PeriodTotals {
+  count: number;
+  amountMxn: number;
+}
+
+export interface QuoteResultsSummary {
+  year: number;
+  month: number;
+  won: { year: PeriodTotals; month: PeriodTotals };
+  lost: { year: PeriodTotals; month: PeriodTotals };
+}
+
+export function summarizeQuoteResults(rows: ClosedQuoteRow[], now: Date = new Date()): QuoteResultsSummary {
+  const { year, month, yearStart, monthStart, nextYearStart } = mxPeriodStarts(now);
+  const empty = () => ({ year: { count: 0, amountMxn: 0 }, month: { count: 0, amountMxn: 0 } });
+  const summary: QuoteResultsSummary = { year, month, won: empty(), lost: empty() };
+  for (const r of rows) {
+    const bucket = r.status === WON_QUOTE_STATUS ? summary.won : r.status === LOST_QUOTE_STATUS ? summary.lost : null;
+    if (!bucket || r.closedAt < yearStart || r.closedAt >= nextYearStart) continue;
+    const amount = r.currency === 'USD' ? r.subtotal * r.exchangeRate : r.subtotal;
+    const periods = r.closedAt >= monthStart ? [bucket.year, bucket.month] : [bucket.year];
+    for (const p of periods) {
+      p.count += 1;
+      p.amountMxn += amount;
+    }
+  }
+  for (const b of [summary.won, summary.lost]) {
+    b.year.amountMxn = round2(b.year.amountMxn);
+    b.month.amountMxn = round2(b.month.amountMxn);
+  }
+  return summary;
+}
