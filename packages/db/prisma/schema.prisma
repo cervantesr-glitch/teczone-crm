@@ -43,6 +43,10 @@ model User {
   ownedAccounts      Account[]                 @relation("AccountOwner")
   ownedOpportunities Opportunity[]             @relation("OpportunityOwner")
   stageChanges       OpportunityStageHistory[]
+  ownedQuotes        Quote[]                   @relation("QuoteOwner")
+  quoteVersions      QuoteVersion[]            @relation("QuoteVersionCreator")
+  approvedVersions   QuoteVersion[]            @relation("QuoteVersionApprover")
+  quoteStatusChanges QuoteStatusHistory[]
 
   @@map("users")
 }
@@ -285,6 +289,8 @@ model Contact {
   opportunities Opportunity[]
   leads         Lead[]
 
+  quotes Quote[]
+
   @@index([accountId])
   @@index([email])
   @@map("contacts")
@@ -335,6 +341,7 @@ model Opportunity {
   owner          User                      @relation("OpportunityOwner", fields: [ownerId], references: [id])
   sourceLeads    Lead[]                    @relation("LeadConversion")
   stageHistory   OpportunityStageHistory[]
+  quotes         Quote[]
 
   @@index([pipeline, stage])
   @@index([ownerId])
@@ -401,4 +408,146 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@map("audit_log")
+}
+
+// ---------- Cotizaciones (entrega 2) ----------
+
+model Product {
+  id          String          @id @default(uuid()) @db.Char(36)
+  sku         String?         @unique
+  name        String
+  description String?         @db.Text
+  category    ProductCategory
+  brand       String?
+  unit        String          @default("pieza")
+  unitCost    Decimal         @map("unit_cost") @db.Decimal(14, 2)
+  listPrice   Decimal         @map("list_price") @db.Decimal(14, 2)
+  currency    Currency
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  quoteItems  QuoteItem[]
+
+  @@index([name])
+  @@map("products")
+}
+
+// Las versiones anteriores a la vigente cubren el estado "Sustituida" del BRD (sección 7.4).
+enum QuoteStatus {
+  BORRADOR
+  PENDIENTE_APROBACION
+  AUTORIZADA
+  ENVIADA
+  EN_NEGOCIACION
+  ACEPTADA
+  RECHAZADA
+  VENCIDA
+}
+
+model Quote {
+  id             String      @id @default(uuid()) @db.Char(36)
+  folioNumber    Int         @unique @default(autoincrement()) @map("folio_number")
+  opportunityId  String      @map("opportunity_id") @db.Char(36)
+  contactId      String?     @map("contact_id") @db.Char(36)
+  ownerId        String      @map("owner_id") @db.Char(36)
+  status         QuoteStatus @default(BORRADOR)
+  currentVersion Int         @default(1) @map("current_version")
+  rejectedReason String?     @map("rejected_reason") @db.Text
+  sentAt         DateTime?   @map("sent_at")
+  closedAt       DateTime?   @map("closed_at")
+  createdById    String      @map("created_by_id") @db.Char(36)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  deletedAt      DateTime?   @map("deleted_at")
+
+  opportunity   Opportunity          @relation(fields: [opportunityId], references: [id])
+  contact       Contact?             @relation(fields: [contactId], references: [id])
+  owner         User                 @relation("QuoteOwner", fields: [ownerId], references: [id])
+  versions      QuoteVersion[]
+  statusHistory QuoteStatusHistory[]
+
+  @@index([opportunityId])
+  @@index([ownerId, status])
+  @@map("quotes")
+}
+
+// Cada versión fija partidas, TC, IVA, vigencia y términos; lo emitido no se modifica.
+model QuoteVersion {
+  id              String    @id @default(uuid()) @db.Char(36)
+  quoteId         String    @map("quote_id") @db.Char(36)
+  number          Int
+  currency        Currency
+  exchangeRate    Decimal   @map("exchange_rate") @db.Decimal(10, 4)
+  taxRate         Decimal   @map("tax_rate") @db.Decimal(5, 2)
+  validUntil      DateTime  @map("valid_until") @db.Date
+  terms           String?   @db.Text
+  notes           String?   @db.Text
+  subtotal        Decimal   @default(0) @db.Decimal(14, 2)
+  tax             Decimal   @default(0) @db.Decimal(14, 2)
+  total           Decimal   @default(0) @db.Decimal(14, 2)
+  totalCost       Decimal   @default(0) @map("total_cost") @db.Decimal(14, 2)
+  marginPct       Decimal   @default(0) @map("margin_pct") @db.Decimal(6, 2)
+  minMarginPct    Decimal   @map("min_margin_pct") @db.Decimal(5, 2)
+  approvedById    String?   @map("approved_by_id") @db.Char(36)
+  approvedAt      DateTime? @map("approved_at")
+  approvalComment String?   @map("approval_comment") @db.Text
+  issuedAt        DateTime? @map("issued_at")
+  createdById     String    @map("created_by_id") @db.Char(36)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  quote      Quote       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  createdBy  User        @relation("QuoteVersionCreator", fields: [createdById], references: [id])
+  approvedBy User?       @relation("QuoteVersionApprover", fields: [approvedById], references: [id])
+  items      QuoteItem[]
+
+  @@unique([quoteId, number])
+  @@map("quote_versions")
+}
+
+model QuoteItem {
+  id          String       @id @default(uuid()) @db.Char(36)
+  versionId   String       @map("version_id") @db.Char(36)
+  position    Int
+  productId   String?      @map("product_id") @db.Char(36)
+  sku         String?
+  description String       @db.Text
+  quantity    Decimal      @db.Decimal(12, 2)
+  unitCost    Decimal      @map("unit_cost") @db.Decimal(14, 2)
+  unitPrice   Decimal      @map("unit_price") @db.Decimal(14, 2)
+  discountPct Decimal      @default(0) @map("discount_pct") @db.Decimal(5, 2)
+  lineTotal   Decimal      @map("line_total") @db.Decimal(14, 2)
+  lineCost    Decimal      @map("line_cost") @db.Decimal(14, 2)
+  version     QuoteVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  product     Product?     @relation(fields: [productId], references: [id])
+
+  @@index([versionId, position])
+  @@map("quote_items")
+}
+
+model QuoteStatusHistory {
+  id            String       @id @default(uuid()) @db.Char(36)
+  quoteId       String       @map("quote_id") @db.Char(36)
+  fromStatus    QuoteStatus? @map("from_status")
+  toStatus      QuoteStatus  @map("to_status")
+  versionNumber Int          @map("version_number")
+  // Nulo cuando el cambio lo hace el sistema (vencimiento).
+  userId        String?      @map("user_id") @db.Char(36)
+  comment       String?      @db.Text
+  createdAt     DateTime     @default(now()) @map("created_at")
+  quote         Quote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  user          User?        @relation(fields: [userId], references: [id])
+
+  @@index([quoteId, createdAt])
+  @@map("quote_status_history")
+}
+
+// Parámetros editables por usuarios autorizados (NFR-08). Cada versión copia los que usó.
+model AppSetting {
+  key         String   @id
+  value       Json
+  updatedById String?  @map("updated_by_id") @db.Char(36)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
 }

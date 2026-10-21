@@ -3,7 +3,7 @@ import type { CreateActivityInput } from '@teczone/shared';
 import type { AuthUser } from '../auth/types';
 import { PrismaService } from '../prisma/prisma.service';
 
-export type RelatedType = 'lead' | 'account' | 'opportunity';
+export type RelatedType = 'lead' | 'account' | 'opportunity' | 'quote';
 
 const ownerSelect = { owner: { select: { id: true, name: true } } } as const;
 

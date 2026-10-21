@@ -22,3 +22,8 @@ export const canSeeOpportunities = (u: SessionUser | null) =>
 export const isManager = (u: SessionUser | null) => has(u, ['ADMIN', 'GERENTE_COMERCIAL']);
 export const canEditOpportunity = (u: SessionUser | null, ownerId: string) =>
   isManager(u) || (has(u, ['EJECUTIVO_PYME', 'EJECUTIVO_TECH']) && u?.id === ownerId);
+// Cotizaciones y catálogo (apps/api/src/common/access.ts).
+export const canSeeQuotes = canSeeOpportunities;
+export const canApproveQuotes = isManager;
+export const canSeeProducts = (u: SessionUser | null) => canSeeOpportunities(u) || has(u, ['COMPRAS_OPERACIONES']);
+export const canWriteProducts = (u: SessionUser | null) => has(u, ['ADMIN', 'GERENTE_COMERCIAL', 'COMPRAS_OPERACIONES']);

@@ -1,5 +1,6 @@
 import type { DecisionRole, OpportunityStage, Pipeline } from '@teczone/shared';
 import type { Activity, NextAction, Ref } from './leads';
+import type { OpportunityQuote } from './quotes';
 
 export interface Contact {
   id: string;
@@ -62,6 +63,7 @@ export interface OpportunityDetail extends OpportunityListItem {
     user: Ref;
   }[];
   sourceLeads: { id: string; folio: string }[];
+  quotes: OpportunityQuote[];
   activities: Activity[];
 }
 
