@@ -66,7 +66,7 @@ export function Activities({
   return (
     <Card title="Actividades y próxima acción">
       {active && !hasNextAction && (
-        <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           No hay próxima acción. Programa una tarea con fecha para no perder el seguimiento.
         </p>
       )}

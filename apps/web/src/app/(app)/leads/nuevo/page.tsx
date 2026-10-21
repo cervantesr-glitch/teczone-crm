@@ -46,10 +46,10 @@ export default function NewLeadPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div>
-        <Link href="/leads" className="text-sm text-brand hover:underline">
+        <Link href="/leads" className="inline-flex items-center gap-1 text-sm text-slate-500 transition hover:text-brand">
           ← Leads
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">Nuevo lead</h1>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">Nuevo lead</h1>
       </div>
 
       {duplicates ? (
@@ -61,7 +61,7 @@ export default function NewLeadPage() {
             {duplicates.items.map((d) => (
               <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
                 <div>
-                  <Link href={`/leads/${d.id}`} className="font-medium text-brand hover:underline" target="_blank">
+                  <Link href={`/leads/${d.id}`} className="font-medium link" target="_blank">
                     {d.folio} · {d.companyName}
                   </Link>
                   <div className="text-slate-500">

@@ -1,10 +1,77 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/inter';
 
+/* Paleta tomada del logo de TecZone: azul marino de "Tec", azul del globo y gris de "Zone". */
 @theme {
-  --color-brand: #0f4c81;
-  --color-brand-dark: #0b3a63;
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dbe7fe;
+  --color-brand-200: #bfd3fd;
+  --color-brand-300: #93b5fb;
+  --color-brand-400: #5f8ef6;
+  --color-brand-500: #2f6cf0;
+  --color-brand-600: #1f55d6;
+  --color-brand-700: #1a44ad;
+  --color-brand-800: #0f337f;
+  --color-brand-900: #002c73;
+  --color-brand-950: #061a45;
+  --color-brand: #1f55d6;
+  --color-brand-dark: #1a44ad;
+  --color-ink: #4a4d52;
+  --color-canvas: #f4f6fb;
+
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --shadow-pop: 0 10px 30px -10px rgb(15 23 42 / 0.25);
+
+  --animate-fade-in: fade-in 0.18s ease-out;
+  --animate-pop-in: pop-in 0.18s ease-out;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--color-brand);
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-canvas text-slate-900 antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+@layer components {
+  /* Tablas de listados: contenedor, encabezado y filas comunes a todos los módulos. */
+  .table-card {
+    @apply overflow-x-auto rounded-xl border border-slate-200/80 bg-white shadow-card;
+  }
+  .table-head {
+    @apply border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold tracking-wide text-slate-500 uppercase;
+  }
+  .table-row {
+    @apply border-b border-slate-100 transition-colors last:border-0 hover:bg-brand-50/50;
+  }
+  .table-foot {
+    @apply border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 text-xs text-slate-500;
+  }
+  .link {
+    @apply font-medium text-brand hover:text-brand-dark hover:underline;
+  }
 }

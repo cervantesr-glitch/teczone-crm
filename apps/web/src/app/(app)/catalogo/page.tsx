@@ -1,8 +1,22 @@
 'use client';
 
 import { CURRENCIES, PRODUCT_CATEGORIES, type CompanySettings, type QuoteSettings } from '@teczone/shared';
+import { Package, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, ErrorText, Field, Input, Modal, Select, Textarea } from '@/components/ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorText,
+  Field,
+  Input,
+  LoadingTable,
+  Modal,
+  PageHeader,
+  Select,
+  Textarea,
+  Toolbar,
+} from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { CATEGORY_LABELS } from '@/lib/leads';
@@ -44,16 +58,30 @@ export default function CatalogPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Catálogo</h1>
-        {writable && <Button onClick={() => setEditing('new')}>Nuevo producto</Button>}
-      </div>
+      <PageHeader
+        title="Catálogo"
+        description="Productos y servicios con costo y precio de lista para cotizar."
+        actions={
+          writable && (
+            <Button onClick={() => setEditing('new')}>
+              <Plus className="size-4" /> Nuevo producto
+            </Button>
+          )
+        }
+      />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-48 flex-1">
-          <Input placeholder="Buscar por nombre, SKU o marca" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar" />
+      <Toolbar>
+        <div className="relative w-full sm:w-auto sm:min-w-64 sm:flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+          <Input
+            className="pl-9"
+            placeholder="Buscar por nombre, SKU o marca"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Buscar"
+          />
         </div>
-        <Select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Categoría" className="w-auto">
+        <Select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Categoría" className="w-full sm:w-auto">
           <option value="">Todas las categorías</option>
           {PRODUCT_CATEGORIES.map((c) => (
             <option key={c} value={c}>
@@ -61,27 +89,33 @@ export default function CatalogPage() {
             </option>
           ))}
         </Select>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+        <label className="flex items-center gap-2 px-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            className="size-4 rounded accent-brand"
+            checked={showInactive}
+            onChange={(e) => setShowInactive(e.target.checked)}
+          />
           Incluir inactivos
         </label>
-      </div>
+      </Toolbar>
 
       <ErrorText>{error}</ErrorText>
 
+      {!items && !error && <LoadingTable />}
       {items &&
         (items.length ? (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <div className="table-card">
             <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+              <thead className="table-head">
                 <tr>
-                  <th className="px-3 py-2">SKU</th>
-                  <th className="px-3 py-2">Producto</th>
-                  <th className="px-3 py-2">Categoría</th>
-                  <th className="px-3 py-2 text-right">Costo</th>
-                  <th className="px-3 py-2 text-right">Precio de lista</th>
-                  <th className="px-3 py-2 text-right">Margen</th>
-                  {writable && <th className="px-3 py-2" />}
+                  <th className="px-4 py-2.5">SKU</th>
+                  <th className="px-4 py-2.5">Producto</th>
+                  <th className="px-4 py-2.5">Categoría</th>
+                  <th className="px-4 py-2.5 text-right">Costo</th>
+                  <th className="px-4 py-2.5 text-right">Precio de lista</th>
+                  <th className="px-4 py-2.5 text-right">Margen</th>
+                  {writable && <th className="px-4 py-2.5" />}
                 </tr>
               </thead>
               <tbody>
@@ -90,17 +124,17 @@ export default function CatalogPage() {
                   const margin = price > 0 ? ((price - Number(p.unitCost)) / price) * 100 : 0;
                   return (
                     <tr key={p.id} className={`border-b border-slate-100 last:border-0 ${p.active ? '' : 'text-slate-400'}`}>
-                      <td className="px-3 py-2 font-mono text-xs">{p.sku ?? '—'}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-4 py-3 font-mono text-xs">{p.sku ?? '—'}</td>
+                      <td className="px-4 py-3">
                         <div className="font-medium">{p.name}</div>
                         <div className="text-slate-500">{[p.brand, p.unit, !p.active && 'inactivo'].filter(Boolean).join(' · ')}</div>
                       </td>
-                      <td className="px-3 py-2">{CATEGORY_LABELS[p.category]}</td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right">{formatMoney(p.unitCost, p.currency)}</td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right">{formatMoney(p.listPrice, p.currency)}</td>
-                      <td className="px-3 py-2 text-right">{margin.toFixed(1)}%</td>
+                      <td className="px-4 py-3">{CATEGORY_LABELS[p.category]}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right">{formatMoney(p.unitCost, p.currency)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right">{formatMoney(p.listPrice, p.currency)}</td>
+                      <td className="px-4 py-3 text-right">{margin.toFixed(1)}%</td>
                       {writable && (
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-4 py-3 text-right">
                           <Button variant="ghost" onClick={() => setEditing(p)}>
                             Editar
                           </Button>
@@ -113,9 +147,9 @@ export default function CatalogPage() {
             </table>
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-            No hay productos{q || category ? ' con estos filtros' : ''}. También puedes cotizar partidas libres.
-          </p>
+          <EmptyState title={q || category ? 'No hay productos con estos filtros' : 'Aún no hay productos'} icon={Package}>
+            También puedes cotizar partidas libres.
+          </EmptyState>
         ))}
 
       {canApproveQuotes(user) && <QuoteSettingsCard />}
@@ -236,7 +270,9 @@ function QuoteSettingsCard() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    api<QuoteSettings>('/settings/quotes').then(setForm).catch((e) => setError(errorMessage(e, 'No se pudieron cargar los parámetros')));
+    api<QuoteSettings>('/settings/quotes')
+      .then(setForm)
+      .catch((e) => setError(errorMessage(e, 'No se pudieron cargar los parámetros')));
   }, []);
 
   if (!form) return error ? <ErrorText>{error}</ErrorText> : null;
@@ -258,7 +294,9 @@ function QuoteSettingsCard() {
 
   return (
     <Card title="Parámetros de cotización">
-      <p className="mb-3 text-sm text-slate-500">Aplican a cotizaciones y versiones nuevas; las existentes conservan los valores con que se crearon.</p>
+      <p className="mb-3 text-sm text-slate-500">
+        Aplican a cotizaciones y versiones nuevas; las existentes conservan los valores con que se crearon.
+      </p>
       <div className="grid gap-3 sm:grid-cols-4">
         <Field label="Margen mínimo (%)" hint="Debajo de este margen se pide autorización">
           <Input type="number" min={0} max={100} step="0.5" value={form.minMarginPct} onChange={num('minMarginPct')} />
@@ -311,7 +349,9 @@ function CompanySettingsCard() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    api<CompanySettings>('/settings/company').then(setForm).catch((e) => setError(errorMessage(e, 'No se pudieron cargar los datos de la empresa')));
+    api<CompanySettings>('/settings/company')
+      .then(setForm)
+      .catch((e) => setError(errorMessage(e, 'No se pudieron cargar los datos de la empresa')));
   }, []);
 
   if (!form) return error ? <ErrorText>{error}</ErrorText> : null;

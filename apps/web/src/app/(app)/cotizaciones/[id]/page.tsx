@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activities } from '@/components/activities';
 import { MarginBadge, QuoteStatusBadge } from '@/components/quote-badge';
-import { Button, Card, ErrorText, Field, Input, Modal, Select, Textarea } from '@/components/ui';
+import { Button, Card, ErrorText, Field, Input, LoadingPage, Modal, Select, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { formatDate, formatDateTime, formatMoney, toLocalInput } from '@/lib/format';
 import { canApproveQuotes, canEditOpportunity } from '@/lib/permissions';
@@ -144,7 +144,7 @@ export default function QuotePage() {
     }
   }
 
-  if (!quote) return error ? <ErrorText>{error}</ErrorText> : <p className="text-slate-500">Cargando…</p>;
+  if (!quote) return error ? <ErrorText>{error}</ErrorText> : <LoadingPage />;
 
   const editable = canEditOpportunity(user, quote.ownerId);
   const approver = canApproveQuotes(user);
@@ -156,17 +156,17 @@ export default function QuotePage() {
   return (
     <div className="space-y-4">
       <div>
-        <Link href={`/oportunidades/${quote.opportunity.id}`} className="text-sm text-brand hover:underline">
+        <Link href={`/oportunidades/${quote.opportunity.id}`} className="inline-flex items-center gap-1 text-sm text-slate-500 transition hover:text-brand">
           ← {quote.opportunity.folio} · {quote.opportunity.name}
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             {quote.folio} <span className="text-slate-400">v{quote.currentVersion}</span>
           </h1>
           <QuoteStatusBadge status={quote.status} />
         </div>
         <p className="text-sm text-slate-500">
-          <Link href={`/cuentas/${quote.opportunity.account.id}`} className="text-brand hover:underline">
+          <Link href={`/cuentas/${quote.opportunity.account.id}`} className="link">
             {quote.opportunity.account.name}
           </Link>{' '}
           · Responsable: {quote.owner.name}

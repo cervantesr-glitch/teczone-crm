@@ -1,10 +1,11 @@
 'use client';
 
 import { ROLE_LABELS, ROLES, type Role } from '@teczone/shared';
+import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Badge, Button, Card, ErrorText, Field, Input, Modal } from '@/components/ui';
+import { Badge, Button, Card, ErrorText, Field, Input, Modal, PageHeader } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, initials } from '@/lib/format';
 import { isAdmin } from '@/lib/permissions';
 import { useSession } from '@/lib/session';
 
@@ -44,26 +45,38 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Usuarios</h1>
-        <Button onClick={() => setEditing('new')}>Nuevo usuario</Button>
-      </div>
+      <PageHeader
+        title="Usuarios"
+        description="Cuentas de acceso y roles del equipo."
+        actions={
+          <Button onClick={() => setEditing('new')}>
+            <Plus className="size-4" /> Nuevo usuario
+          </Button>
+        }
+      />
       <ErrorText>{error}</ErrorText>
       <Card>
         <ul className="divide-y divide-slate-100">
           {users.map((u) => (
-            <li key={u.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-              <div>
-                <div className="font-medium">
-                  {u.name} {!u.active && <Badge className="bg-slate-200 text-slate-600">Inactivo</Badge>}
-                </div>
-                <div className="text-sm text-slate-500">{u.email}</div>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {u.roles.map((r) => (
-                    <Badge key={r} className="bg-sky-50 text-sky-800">
-                      {ROLE_LABELS[r]}
-                    </Badge>
-                  ))}
+            <li key={u.id} className="flex flex-wrap items-center justify-between gap-3 py-3.5">
+              <div className="flex items-start gap-3">
+                <span
+                  className={`grid size-10 shrink-0 place-items-center rounded-full text-sm font-semibold ${u.active ? 'bg-brand-50 text-brand' : 'bg-slate-100 text-slate-400'}`}
+                >
+                  {initials(u.name)}
+                </span>
+                <div>
+                  <div className="font-medium">
+                    {u.name} {!u.active && <Badge className="bg-slate-200 text-slate-600">Inactivo</Badge>}
+                  </div>
+                  <div className="text-sm text-slate-500">{u.email}</div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {u.roles.map((r) => (
+                      <Badge key={r} className="bg-brand-50 text-brand-700">
+                        {ROLE_LABELS[r]}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm">

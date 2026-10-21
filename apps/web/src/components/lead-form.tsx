@@ -223,7 +223,7 @@ export function LeadForm({
         ))}
       </div>
 
-      <button type="button" className="text-sm text-brand hover:underline" onClick={() => setMore(!more)}>
+      <button type="button" className="text-sm link" onClick={() => setMore(!more)}>
         {more ? 'Ocultar datos adicionales' : 'Más datos (puesto, RFC, presupuesto, ubicación…)'}
       </button>
       {more && (

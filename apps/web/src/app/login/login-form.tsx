@@ -3,6 +3,7 @@
 import { loginSchema } from '@teczone/shared';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
+import { ErrorText, Spinner } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 
 export function LoginForm() {
@@ -33,9 +34,9 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="mt-8 space-y-5" noValidate>
       <div>
-        <label htmlFor="email" className="block text-sm font-medium">
+        <label htmlFor="email" className="block text-sm font-medium text-slate-700">
           Correo
         </label>
         <input
@@ -43,12 +44,13 @@ export function LoginForm() {
           name="email"
           type="email"
           autoComplete="username"
+          placeholder="nombre@teczone.mx"
           required
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+          className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 shadow-xs transition placeholder:text-slate-400 focus:border-brand focus:ring-3 focus:ring-brand/15 focus:outline-none"
         />
       </div>
       <div>
-        <label htmlFor="password" className="block text-sm font-medium">
+        <label htmlFor="password" className="block text-sm font-medium text-slate-700">
           Contraseña
         </label>
         <input
@@ -57,19 +59,16 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           required
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+          className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 shadow-xs transition placeholder:text-slate-400 focus:border-brand focus:ring-3 focus:ring-brand/15 focus:outline-none"
         />
       </div>
-      {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {error}
-        </p>
-      )}
+      <ErrorText>{error}</ErrorText>
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-md bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-brand-dark focus-visible:ring-3 focus-visible:ring-brand/30 focus-visible:outline-none disabled:opacity-60"
       >
+        {loading && <Spinner className="size-4" />}
         {loading ? 'Entrando…' : 'Entrar'}
       </button>
     </form>
