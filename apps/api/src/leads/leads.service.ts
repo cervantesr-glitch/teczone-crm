@@ -8,6 +8,9 @@ import {
 import {
   addBusinessHours,
   canTransition,
+  firstStage,
+  STAGE_PROBABILITY,
+  type ConvertLeadInput,
   FIRST_CONTACT_SLA_HOURS,
   normalizePhone,
   qualificationScore,
@@ -21,6 +24,9 @@ import {
 } from '@teczone/shared';
 import { Prisma, type Lead } from '@teczone/db';
 import type { AuthUser } from '../auth/types';
+import { AccountsService } from '../accounts/accounts.service';
+import { ActivitiesService } from '../activities/activities.service';
+import { formatOpportunityFolio } from '../opportunities/opportunity-format';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   canAssignLeads,
@@ -43,7 +49,11 @@ type ListedLead = Prisma.LeadGetPayload<{ include: typeof listInclude }>;
 
 @Injectable()
 export class LeadsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activities: ActivitiesService,
+    private readonly accounts: AccountsService,
+  ) {}
 
   async list(query: LeadListQuery, user: AuthUser) {
     const where: Prisma.LeadWhereInput = {
@@ -63,7 +73,7 @@ export class LeadsService {
         take: query.pageSize,
       }),
     ]);
-    const nextActions = await this.nextActions(leads.map((l) => l.id));
+    const nextActions = await this.activities.nextActions('lead', leads.map((l) => l.id));
     return {
       total,
       page: query.page,
@@ -79,16 +89,14 @@ export class LeadsService {
         ...listInclude,
         createdBy: { select: { id: true, name: true } },
         disqualificationReason: { select: { id: true, name: true } },
+        convertedAccount: { select: { id: true, name: true } },
+        convertedOpportunity: { select: { id: true, folioNumber: true, name: true } },
         productsOfInterest: true,
         statusHistory: { include: { user: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' } },
       },
     });
     if (!lead) throw new NotFoundException('Lead no encontrado');
-    const activities = await this.prisma.activity.findMany({
-      where: { relatedType: 'lead', relatedId: id },
-      include: { owner: { select: { id: true, name: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+    const activities = await this.activities.list('lead', id);
     const next = activities
       .filter((a) => a.type === 'TAREA' && !a.completedAt && a.dueAt)
       .sort((a, b) => a.dueAt!.getTime() - b.dueAt!.getTime())[0];
@@ -96,6 +104,12 @@ export class LeadsService {
       ...this.toListItem(lead, next ? { id: next.id, subject: next.subject, dueAt: next.dueAt! } : null),
       createdBy: lead.createdBy,
       disqualificationReason: lead.disqualificationReason,
+      convertedAccount: lead.convertedAccount,
+      convertedOpportunity: lead.convertedOpportunity && {
+        id: lead.convertedOpportunity.id,
+        name: lead.convertedOpportunity.name,
+        folio: formatOpportunityFolio(lead.convertedOpportunity.folioNumber),
+      },
       productsOfInterest: lead.productsOfInterest,
       statusHistory: lead.statusHistory,
       activities,
@@ -286,29 +300,101 @@ export class LeadsService {
 
   async addActivity(id: string, input: CreateActivityInput, user: AuthUser) {
     await this.editable(id, user);
-    return this.prisma.activity.create({
-      data: {
-        ...input,
-        occurredAt: input.type === 'TAREA' ? null : (input.occurredAt ?? new Date()),
-        ownerId: user.id,
-        relatedType: 'lead',
-        relatedId: id,
-      },
-      include: { owner: { select: { id: true, name: true } } },
-    });
+    return this.activities.add('lead', id, input, user);
   }
 
   async completeActivity(leadId: string, activityId: string, user: AuthUser) {
     await this.editable(leadId, user);
-    const activity = await this.prisma.activity.findFirst({
-      where: { id: activityId, relatedType: 'lead', relatedId: leadId },
+    return this.activities.toggle('lead', leadId, activityId);
+  }
+
+  // Conversión del lead calificado (FR-25, RN-13): una sola transacción crea o vincula cuenta y contacto,
+  // crea la oportunidad en el pipeline elegido y deja el lead como historial de solo consulta.
+  async convert(id: string, input: ConvertLeadInput, user: AuthUser) {
+    const lead = await this.editable(id, user);
+    if (!canTransition(lead.status, 'CONVERTIDO')) {
+      throw new BadRequestException('Solo un lead calificado se puede convertir');
+    }
+    if (!lead.ownerId) throw new BadRequestException('Asigna un responsable antes de convertir el lead');
+    if (input.account.mode === 'new') await this.accounts.assertRfcFree(input.account.data.rfc);
+
+    const opportunityId = await this.prisma.$transaction(async (tx) => {
+      let accountId: string;
+      if (input.account.mode === 'existing') {
+        const account = await tx.account.findFirst({ where: { id: input.account.accountId, deletedAt: null } });
+        if (!account) throw new BadRequestException('La cuenta elegida no existe');
+        accountId = account.id;
+      } else {
+        const account = await tx.account.create({
+          data: { ...input.account.data, ownerId: lead.ownerId, createdById: user.id },
+        });
+        accountId = account.id;
+      }
+
+      let contactId: string;
+      if (input.contact.mode === 'existing') {
+        const contact = await tx.contact.findFirst({
+          where: { id: input.contact.contactId, accountId, deletedAt: null },
+        });
+        if (!contact) throw new BadRequestException('El contacto no pertenece a la cuenta');
+        contactId = contact.id;
+      } else {
+        const hasPrimary = await tx.contact.count({ where: { accountId, isPrimary: true, deletedAt: null } });
+        const contact = await tx.contact.create({
+          data: {
+            ...input.contact.data,
+            accountId,
+            isPrimary: input.contact.data.isPrimary ?? !hasPrimary,
+            phoneNormalized: normalizePhone(input.contact.data.phone ?? input.contact.data.whatsapp),
+          },
+        });
+        contactId = contact.id;
+      }
+
+      const stage = firstStage(input.opportunity.pipeline);
+      const opportunity = await tx.opportunity.create({
+        data: {
+          name: input.opportunity.name,
+          pipeline: input.opportunity.pipeline,
+          stage,
+          probability: STAGE_PROBABILITY[stage],
+          amount: input.opportunity.amount ?? lead.estimatedBudget,
+          currency: input.opportunity.currency ?? lead.currency,
+          expectedCloseDate: input.opportunity.expectedCloseDate ?? lead.expectedPurchaseDate,
+          accountId,
+          primaryContactId: contactId,
+          ownerId: lead.ownerId!,
+          createdById: user.id,
+        },
+      });
+      await tx.opportunityStageHistory.create({
+        data: { opportunityId: opportunity.id, toStage: stage, userId: user.id, comment: `Convertido desde ${formatFolio(lead.folioNumber)}` },
+      });
+      await tx.lead.update({
+        where: { id },
+        data: {
+          status: 'CONVERTIDO',
+          convertedAt: new Date(),
+          convertedAccountId: accountId,
+          convertedContactId: contactId,
+          convertedOpportunityId: opportunity.id,
+        },
+      });
+      await tx.leadStatusHistory.create({
+        data: { leadId: id, fromStatus: lead.status, toStatus: 'CONVERTIDO', userId: user.id },
+      });
+      await tx.auditLog.create({
+        data: {
+          entity: 'lead',
+          entityId: id,
+          action: 'convert',
+          userId: user.id,
+          changes: { accountId, contactId, opportunityId: opportunity.id },
+        },
+      });
+      return opportunity.id;
     });
-    if (!activity) throw new NotFoundException('Actividad no encontrada');
-    return this.prisma.activity.update({
-      where: { id: activityId },
-      data: { completedAt: activity.completedAt ? null : new Date() },
-      include: { owner: { select: { id: true, name: true } } },
-    });
+    return { opportunityId, lead: await this.get(id, user) };
   }
 
   async remove(id: string, user: AuthUser) {
@@ -352,19 +438,6 @@ export class LeadsService {
         ...(folio ? [{ folioNumber: Number(folio[1]) }] : []),
       ],
     };
-  }
-
-  private async nextActions(leadIds: string[]) {
-    const map = new Map<string, { id: string; subject: string; dueAt: Date }>();
-    if (!leadIds.length) return map;
-    const tasks = await this.prisma.activity.findMany({
-      where: { relatedType: 'lead', relatedId: { in: leadIds }, type: 'TAREA', completedAt: null, dueAt: { not: null } },
-      orderBy: { dueAt: 'asc' },
-    });
-    for (const t of tasks) {
-      if (!map.has(t.relatedId)) map.set(t.relatedId, { id: t.id, subject: t.subject, dueAt: t.dueAt! });
-    }
-    return map;
   }
 
   private toListItem(lead: ListedLead, nextAction: { id: string; subject: string; dueAt: Date } | null) {

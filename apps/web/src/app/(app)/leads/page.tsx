@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { DisqualifyModal } from '@/components/disqualify-modal';
 import { SlaBadge, StatusBadge } from '@/components/lead-badges';
-import { Button, ErrorText, Input, Select } from '@/components/ui';
+import { ErrorText, Input, Select } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { formatDate, formatDateTime } from '@/lib/format';
 import type { LeadListItem } from '@/lib/leads';

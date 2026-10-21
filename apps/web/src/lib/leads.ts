@@ -57,6 +57,8 @@ export interface LeadDetail extends LeadListItem {
   qualification: { budget: boolean; authority: boolean; need: boolean; timeline: boolean; notes: string | null } | null;
   disqualificationNotes: string | null;
   disqualificationReason: Ref | null;
+  convertedAccount: Ref | null;
+  convertedOpportunity: { id: string; name: string; folio: string } | null;
   createdBy: Ref;
   productsOfInterest: { id: string; category: string; description: string; quantity: number | null }[];
   statusHistory: {

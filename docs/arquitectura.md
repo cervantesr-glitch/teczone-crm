@@ -27,8 +27,14 @@ Hostinger, plan de apps web Node.js con MySQL administrado (decisión del 20 oct
 
 Los 8 roles del BRD v1.1 (sección 6) están en `packages/shared/src/roles.ts`: Administrador, Dirección, Gerente Comercial, Ejecutivo PyME, Ejecutivo Tech, Preventa, Customer Success y Compras/Operaciones. Un usuario puede tener varios. Las rutas se restringen con `@Roles(...)`; sin decorador basta con tener sesión, y `@Public()` las abre.
 
+## Acceso a cuentas y oportunidades
+
+La matriz está en `apps/api/src/common/access.ts` (propuesta, BRD v1.1 D11). Ven cuentas los roles comerciales, Preventa y Customer Success. Dirección, gerencia y Preventa ven todas las oportunidades; cada ejecutivo, solo las suyas. Solo el responsable o un gerente modifica una oportunidad, y solo gerencia reabre una cerrada.
+
+La conversión (`POST /api/leads/:id/convert`, FR-25) corre en una transacción: crea o reutiliza la cuenta (el RFC es único y un duplicado responde 409 con el `accountId` existente) y el contacto, crea la oportunidad en la primera etapa de su pipeline y marca el lead como convertido.
+
 ## Orden de entregas (BRD v1.1)
 
-1. Leads (en curso)
+1. Leads, conversión a cuenta, contacto y oportunidad (en curso)
 2. Generación y gestión de cotizaciones
 3. Elaboración y seguimiento de contratos de servicio
