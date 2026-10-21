@@ -58,6 +58,37 @@ export interface QuoteSettings {
   terms: string;
 }
 
+// Datos del emisor que aparecen en el PDF (FR-06).
+export interface CompanySettings {
+  name: string;
+  legalName: string;
+  rfc: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+}
+
+export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
+  name: 'TecZone',
+  legalName: '',
+  rfc: '',
+  address: '',
+  phone: '',
+  email: '',
+  website: '',
+};
+
+export const companySettingsSchema = z.object({
+  name: z.string().trim().min(1, 'Escribe el nombre comercial').max(191),
+  legalName: z.string().trim().max(191),
+  rfc: z.string().trim().toUpperCase().max(13),
+  address: z.string().trim().max(500),
+  phone: z.string().trim().max(60),
+  email: z.string().trim().max(191),
+  website: z.string().trim().max(191),
+});
+
 export const DEFAULT_QUOTE_SETTINGS: QuoteSettings = {
   minMarginPct: 15,
   validityDays: 15,
