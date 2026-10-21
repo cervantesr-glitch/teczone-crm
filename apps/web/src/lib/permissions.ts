@@ -20,6 +20,8 @@ export const canWriteAccounts = (u: SessionUser | null) =>
 export const canSeeOpportunities = (u: SessionUser | null) =>
   has(u, ['ADMIN', 'DIRECCION', 'GERENTE_COMERCIAL', 'EJECUTIVO_PYME', 'EJECUTIVO_TECH', 'PREVENTA']);
 export const isManager = (u: SessionUser | null) => has(u, ['ADMIN', 'GERENTE_COMERCIAL']);
+export const canWriteOpportunities = (u: SessionUser | null) =>
+  has(u, ['ADMIN', 'GERENTE_COMERCIAL', 'EJECUTIVO_PYME', 'EJECUTIVO_TECH']);
 export const canEditOpportunity = (u: SessionUser | null, ownerId: string) =>
   isManager(u) || (has(u, ['EJECUTIVO_PYME', 'EJECUTIVO_TECH']) && u?.id === ownerId);
 // Cotizaciones y catálogo (apps/api/src/common/access.ts).

@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { ContactFields, contactPayload, type ContactFormValues } from '@/components/contact-fields';
+import { NewOpportunityModal } from '@/components/new-opportunity-modal';
 import { StageBadge } from '@/components/stage-badge';
 import { Badge, Button, Card, ErrorText, Field, Input, LoadingPage, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import type { AccountDetail } from '@/lib/crm';
 import { formatDay, formatMoney } from '@/lib/format';
-import { canSeeOpportunities, canWriteAccounts } from '@/lib/permissions';
+import { canSeeOpportunities, canWriteAccounts, canWriteOpportunities } from '@/lib/permissions';
 import { useSession } from '@/lib/session';
 
 const ACCOUNT_FIELDS = [
@@ -39,6 +40,7 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<AccountForm | null>(null);
   const [newContact, setNewContact] = useState<ContactFormValues | null>(null);
+  const [creatingOpp, setCreatingOpp] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -124,7 +126,16 @@ export default function AccountPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {canSeeOpportunities(user) && (
-            <Card title="Oportunidades">
+            <Card
+              title="Oportunidades"
+              actions={
+                canWriteOpportunities(user) && (
+                  <Button variant="ghost" onClick={() => setCreatingOpp(true)}>
+                    Nueva oportunidad
+                  </Button>
+                )
+              }
+            >
               {account.opportunities.length ? (
                 <ul className="divide-y divide-slate-100">
                   {account.opportunities.map((o) => (
@@ -249,6 +260,14 @@ export default function AccountPage() {
           )}
         </Card>
       </div>
+      {creatingOpp && (
+        <NewOpportunityModal
+          accountId={account.id}
+          accountName={account.name}
+          contacts={account.contacts}
+          onClose={() => setCreatingOpp(false)}
+        />
+      )}
     </div>
   );
 }

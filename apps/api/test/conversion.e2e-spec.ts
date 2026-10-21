@@ -225,4 +225,45 @@ describe('Conversión de leads, cuentas y oportunidades (e2e)', () => {
     expect(primary).toHaveLength(1);
     expect(primary[0].name).toBe('Ing. Luis Peña');
   });
+
+  describe('nueva oportunidad en una cuenta existente', () => {
+    it('el ejecutivo la crea en la primera etapa, con él como responsable', async () => {
+      const res = await api()
+        .post('/api/opportunities')
+        .set('Cookie', seller)
+        .send({ accountId, pipeline: 'SOLUCIONES', name: 'Auditoría de red', amount: 80000, primaryContactId: contactId })
+        .expect(201);
+      expect(res.body.stage).toBe('CALIFICACION');
+      expect(res.body.owner.name).toBe('Ejecutivo 1');
+      expect(res.body.currency).toBe('MXN');
+      expect(res.body.primaryContact.id).toBe(contactId);
+      expect(res.body.stageHistory[0].comment).toBe('Creada desde la cuenta');
+    });
+
+    it('solo gerencia la asigna a otro responsable', async () => {
+      const other = await prisma.user.findUniqueOrThrow({ where: { email: 'pyme2@test.mx' } });
+      await api()
+        .post('/api/opportunities')
+        .set('Cookie', seller)
+        .send({ accountId, pipeline: 'PYME', name: 'Para otro', ownerId: other.id })
+        .expect(403);
+      const res = await api()
+        .post('/api/opportunities')
+        .set('Cookie', manager)
+        .send({ accountId, pipeline: 'PYME', name: 'Asignada', ownerId: other.id })
+        .expect(201);
+      expect(res.body.owner.id).toBe(other.id);
+    });
+
+    it('rechaza un contacto de otra cuenta y a preventa', async () => {
+      const otherAccount = await prisma.account.create({ data: { name: 'Otra cuenta', createdById: (await prisma.user.findFirstOrThrow()).id } });
+      const foreign = await prisma.contact.create({ data: { accountId: otherAccount.id, name: 'Ajeno' } });
+      await api()
+        .post('/api/opportunities')
+        .set('Cookie', seller)
+        .send({ accountId, pipeline: 'PYME', name: 'X', primaryContactId: foreign.id })
+        .expect(400);
+      await api().post('/api/opportunities').set('Cookie', presales).send({ accountId, pipeline: 'PYME', name: 'X' }).expect(403);
+    });
+  });
 });

@@ -141,6 +141,16 @@ export const convertLeadSchema = z.object({
   opportunity: z.object({ pipeline: z.enum(PIPELINES), ...opportunityFields }),
 });
 
+// Oportunidad nueva para una cuenta existente, sin pasar por un lead.
+export const createOpportunitySchema = z.object({
+  accountId: z.string().uuid(),
+  pipeline: z.enum(PIPELINES),
+  ...opportunityFields,
+  primaryContactId: z.string().uuid().optional().nullable(),
+  // Solo gerencia asigna a otro responsable; por omisión es quien la crea.
+  ownerId: z.string().uuid().optional(),
+});
+
 export const updateOpportunitySchema = z
   .object({
     ...opportunityFields,
@@ -182,6 +192,7 @@ export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
 export type ContactInput = z.infer<typeof contactFieldsSchema>;
 export type UpdateContactInput = z.infer<typeof updateContactSchema>;
 export type ConvertLeadInput = z.infer<typeof convertLeadSchema>;
+export type CreateOpportunityInput = z.infer<typeof createOpportunitySchema>;
 export type UpdateOpportunityInput = z.infer<typeof updateOpportunitySchema>;
 export type ChangeStageInput = z.infer<typeof changeStageSchema>;
 export type OpportunityListQuery = z.infer<typeof opportunityListQuerySchema>;
