@@ -1,6 +1,6 @@
 'use client';
 
-import { CLOSED_STAGES, PIPELINE_LABELS, PIPELINE_STAGES, STAGE_LABELS, type OpportunityStage } from '@teczone/shared';
+import { CLOSED_STAGES, costMarginPct, PIPELINE_LABELS, PIPELINE_STAGES, STAGE_LABELS, type OpportunityStage } from '@teczone/shared';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -193,7 +193,7 @@ export default function OpportunityPage() {
                       {q.folio} v{q.version.number}
                     </Link>
                     <div className="flex items-center gap-3">
-                      <span className="text-slate-500">Margen {Number(q.version.marginPct).toFixed(1)}%</span>
+                      <span className="text-slate-500">Margen {costMarginPct(Number(q.version.subtotal), Number(q.version.totalCost)).toFixed(1)}%</span>
                       <span>{formatMoney(q.version.total, q.version.currency)}</span>
                       <QuoteStatusBadge status={q.status} />
                     </div>

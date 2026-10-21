@@ -3,7 +3,8 @@
 import {
   computeLine,
   computeQuoteTotals,
-  MAX_LINE_MARGIN_PCT,
+  costMarginPct,
+  MIN_LINE_MARGIN_PCT,
   marginFromPrice,
   priceFromMargin,
   QUOTE_STATUS_LABELS,
@@ -31,7 +32,7 @@ interface Line {
   description: string;
   quantity: string;
   unitCost: string;
-  // Se captura el margen; el precio se calcula a partir del costo. Solo sin costo se captura el precio.
+  // Se captura el margen sobre costo; el precio se calcula. Solo sin costo se captura el precio.
   marginPct: string;
   unitPrice: string;
   discountPct: string;
@@ -76,8 +77,13 @@ const numericLine = (l: Line) => ({
   discountPct: Number(l.discountPct) || 0,
 });
 
+const draftCostMargin = (d: Draft) => {
+  const { subtotal, totalCost } = computeQuoteTotals(d.lines.map(numericLine), 0);
+  return costMarginPct(subtotal, totalCost);
+};
+
 const hasCost = (l: Line) => Number(l.unitCost) > 0;
-const invalidMargin = (l: Line) => hasCost(l) && !(Number(l.marginPct) <= MAX_LINE_MARGIN_PCT);
+const invalidMargin = (l: Line) => hasCost(l) && !(Number(l.marginPct) >= MIN_LINE_MARGIN_PCT);
 
 // Aplica un cambio a la partida y recalcula el precio cuando cambia el costo o el margen.
 function patchLine(l: Line, patch: Partial<Line>): Line {
@@ -143,7 +149,7 @@ export default function QuotePage() {
   async function saveDraft() {
     if (!draft) return false;
     if (draft.lines.some(invalidMargin)) {
-      setError('El margen de cada partida debe ser menor a 100%');
+      setError('El margen de cada partida debe ser mayor a −100%');
       return false;
     }
     setBusy(true);
@@ -223,7 +229,7 @@ export default function QuotePage() {
                 }}
                 disabled={busy || !draft!.lines.length}
               >
-                {computeQuoteTotals(draft!.lines.map(numericLine), Number(current.taxRate)).marginPct < minMargin
+                {draftCostMargin(draft!) < minMargin
                   ? 'Enviar a autorización'
                   : 'Terminar y autorizar'}
               </Button>
@@ -376,10 +382,10 @@ export default function QuotePage() {
 }
 
 function StatusBanner({ quote, current }: { quote: QuoteDetail; current: QuoteVersion }) {
-  const margin = Number(current.marginPct);
+  const margin = costMarginPct(Number(current.subtotal), Number(current.totalCost));
   const min = Number(current.minMarginPct);
   const messages: Partial<Record<QuoteDetail['status'], string>> = {
-    PENDIENTE_APROBACION: `El margen de ${margin}% está por debajo del mínimo de ${min}%. Un gerente comercial debe autorizarla antes de enviarla.`,
+    PENDIENTE_APROBACION: `El margen sobre costo de ${margin}% está por debajo del mínimo de ${min}%. Un gerente comercial debe autorizarla antes de enviarla.`,
     AUTORIZADA: current.approvedBy
       ? `Autorizada por ${current.approvedBy.name}${current.approvalComment ? `: “${current.approvalComment}”` : ''}. Lista para enviar.`
       : 'Lista para enviar al cliente.',
@@ -405,6 +411,7 @@ function Totals({
   total,
   totalCost,
   margin,
+  saleMargin,
   min,
   taxRate,
 }: {
@@ -413,7 +420,9 @@ function Totals({
   tax: number;
   total: number;
   totalCost: number;
+  // Margen sobre costo (el que se valida) y sobre venta (referencia).
   margin: number;
+  saleMargin: number;
   min: number;
   taxRate: number;
 }) {
@@ -436,10 +445,14 @@ function Totals({
         <dd>{formatMoney(totalCost, currency)}</dd>
       </div>
       <div className="flex items-center justify-between">
-        <dt className="text-slate-500">Mínimo {min}%</dt>
+        <dt className="text-slate-500">Mínimo {min}% s/costo</dt>
         <dd>
           <MarginBadge margin={margin} min={min} />
         </dd>
+      </div>
+      <div className="flex justify-between text-xs text-slate-500">
+        <dt>Margen sobre venta</dt>
+        <dd>{saleMargin.toFixed(2)}%</dd>
       </div>
     </dl>
   );
@@ -513,7 +526,8 @@ function VersionView({ quote, version }: { quote: QuoteDetail; version: QuoteVer
           tax={Number(version.tax)}
           total={Number(version.total)}
           totalCost={Number(version.totalCost)}
-          margin={Number(version.marginPct)}
+          margin={costMarginPct(Number(version.subtotal), Number(version.totalCost))}
+          saleMargin={Number(version.marginPct)}
           min={Number(version.minMarginPct)}
           taxRate={Number(version.taxRate)}
         />
@@ -642,11 +656,13 @@ function Editor({
               <th className="px-1 py-2">Descripción</th>
               <th className="w-20 px-1 py-2">Cant.</th>
               <th className="w-28 px-1 py-2">Costo unit.</th>
-              <th className="w-24 px-1 py-2">Margen %</th>
+              <th className="w-24 px-1 py-2" title="Sobre el costo: precio = costo × (1 + margen)">
+                Margen %
+              </th>
               <th className="w-28 px-1 py-2 text-right">Precio unit.</th>
               <th className="w-20 px-1 py-2">Desc. %</th>
               <th className="w-28 px-1 py-2 text-right">Importe</th>
-              <th className="w-24 px-1 py-2 text-right" title="Margen después del descuento">
+              <th className="w-24 px-1 py-2 text-right" title="Margen sobre costo después del descuento">
                 Margen real
               </th>
               <th className="w-8" />
@@ -655,7 +671,7 @@ function Editor({
           <tbody>
             {draft.lines.map((l) => {
               const { lineTotal, lineCost } = computeLine(numericLine(l));
-              const lineMargin = lineTotal > 0 ? ((lineTotal - lineCost) / lineTotal) * 100 : 0;
+              const lineMargin = costMarginPct(lineTotal, lineCost);
               return (
                 <tr key={l.key} className="border-b border-slate-100 align-top">
                   <td className={cell}>
@@ -672,7 +688,7 @@ function Editor({
                     {hasCost(l) ? (
                       <Input
                         type="number"
-                        max={MAX_LINE_MARGIN_PCT}
+                        min={MIN_LINE_MARGIN_PCT}
                         step="0.01"
                         value={l.marginPct}
                         onChange={(e) => setLine(l.key, { marginPct: e.target.value })}
@@ -691,7 +707,7 @@ function Editor({
                         —
                       </div>
                     )}
-                    {invalidMargin(l) && <div className="mt-1 text-xs text-red-600">Menor a 100%</div>}
+                    {invalidMargin(l) && <div className="mt-1 text-xs text-red-600">Mayor a −100%</div>}
                   </td>
                   <td className={cell}>
                     {hasCost(l) ? (
@@ -760,7 +776,8 @@ function Editor({
         <Totals
           currency={draft.currency}
           {...totals}
-          margin={totals.marginPct}
+          margin={costMarginPct(totals.subtotal, totals.totalCost)}
+          saleMargin={totals.marginPct}
           min={Number(version.minMarginPct)}
           taxRate={taxRate}
         />
