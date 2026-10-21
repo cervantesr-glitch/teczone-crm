@@ -7,11 +7,13 @@
   },
   "scripts": {
     "dev": "pnpm -r --parallel --filter ./apps/* dev",
-    "build": "pnpm -r build",
+    "build": "node scripts/build-prod.js",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "db:migrate": "pnpm --filter @teczone/db migrate:dev",
     "db:deploy": "pnpm --filter @teczone/db migrate:deploy",
-    "db:seed": "pnpm --filter @teczone/db seed"
+    "db:seed": "pnpm --filter @teczone/db seed",
+    "build:prod": "node scripts/build-prod.js",
+    "start": "node server.js"
   }
 }

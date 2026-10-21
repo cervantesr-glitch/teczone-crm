@@ -38,5 +38,5 @@ jobs:
       - run: pnpm db:deploy
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm --filter @teczone/api build
-      - run: pnpm --filter @teczone/web build
+      # El mismo build que corre Hostinger (docs/deploy-hostinger.md).
+      - run: pnpm build:prod

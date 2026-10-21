@@ -30,14 +30,18 @@ pnpm test
 
 ## Despliegue en Hostinger
 
-Plan Business de apps web Node.js con su MySQL. Se publican dos apps desde este repositorio:
+Una sola app web Node.js del plan Business, conectada a este repositorio, con la base MySQL de Hostinger. `server.js` aplica las migraciones pendientes, crea el administrador inicial si no existe, levanta la API en `127.0.0.1:4000` (solo interna) y sirve la web en el puerto 3000.
 
-| App | Directorio | Build | Arranque |
-| --- | --- | --- | --- |
-| API | raíz | `pnpm install && pnpm --filter @teczone/shared build && pnpm --filter @teczone/db build && pnpm db:deploy && pnpm --filter @teczone/api build` | `node apps/api/dist/main.js` |
-| Web | raíz | `pnpm install && pnpm --filter @teczone/shared build && pnpm --filter @teczone/web build` | `pnpm --filter @teczone/web start` |
+| Campo en hPanel | Valor |
+| --- | --- |
+| Framework | Other |
+| Directorio raíz | `./` |
+| Node.js | 22 |
+| Gestor de paquetes | pnpm |
+| Comando de build | `build` (el que Hostinger pone por omisión) |
+| Archivo de entrada | `server.js` |
 
-Variables de entorno: las de `.env.example`, con `COOKIE_SECURE=true` y `API_URL` apuntando a la URL pública de la API. La guía detallada llegará con el PR de despliegue.
+Cada push a `main` vuelve a publicar. La guía completa, con las variables de entorno, está en [docs/deploy-hostinger.md](docs/deploy-hostinger.md).
 
 ## Estructura
 
