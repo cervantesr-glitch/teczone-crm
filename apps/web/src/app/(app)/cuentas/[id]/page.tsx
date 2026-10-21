@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { ContactFields, contactPayload, type ContactFormValues } from '@/components/contact-fields';
 import { StageBadge } from '@/components/stage-badge';
-import { Badge, Button, Card, ErrorText, Field, Input, Textarea } from '@/components/ui';
+import { Badge, Button, Card, ErrorText, Field, Input, LoadingPage, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import type { AccountDetail } from '@/lib/crm';
 import { formatDate, formatMoney } from '@/lib/format';
@@ -52,7 +52,7 @@ export default function AccountPage() {
     load();
   }, [load]);
 
-  if (!account) return error ? <ErrorText>{error}</ErrorText> : <p className="text-slate-500">Cargando…</p>;
+  if (!account) return error ? <ErrorText>{error}</ErrorText> : <LoadingPage />;
 
   const writable = canWriteAccounts(user);
 
@@ -109,10 +109,10 @@ export default function AccountPage() {
   return (
     <div className="space-y-4">
       <div>
-        <Link href="/cuentas" className="text-sm text-brand hover:underline">
+        <Link href="/cuentas" className="inline-flex items-center gap-1 text-sm text-slate-500 transition hover:text-brand">
           ← Cuentas
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{account.name}</h1>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{account.name}</h1>
         <p className="text-sm text-slate-500">
           {[account.legalName, account.rfc].filter(Boolean).join(' · ') || 'Sin datos fiscales'}
           {account.owner && ` · Responsable: ${account.owner.name}`}
@@ -130,7 +130,7 @@ export default function AccountPage() {
                   {account.opportunities.map((o) => (
                     <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                       <div>
-                        <Link href={`/oportunidades/${o.id}`} className="font-medium hover:underline">
+                        <Link href={`/oportunidades/${o.id}`} className="font-medium text-slate-900 hover:text-brand">
                           <span className="font-mono text-xs text-slate-500">{o.folio}</span> {o.name}
                         </Link>
                         <div className="text-slate-500">

@@ -16,7 +16,7 @@ import { Activities } from '@/components/activities';
 import { DisqualifyModal } from '@/components/disqualify-modal';
 import { SlaBadge, StatusBadge } from '@/components/lead-badges';
 import { formToPayload, LeadForm, leadToForm } from '@/components/lead-form';
-import { Button, Card, ErrorText, Select, Textarea } from '@/components/ui';
+import { Button, Card, ErrorText, LoadingPage, Select, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { formatDate, formatDateTime, formatMoney } from '@/lib/format';
 import { CATEGORY_LABELS, type LeadDetail } from '@/lib/leads';
@@ -53,7 +53,7 @@ export default function LeadDetailPage() {
   useEffect(load, [load]);
 
   if (!lead) {
-    return error ? <ErrorText>{error}</ErrorText> : <p className="text-slate-500">Cargando…</p>;
+    return error ? <ErrorText>{error}</ErrorText> : <LoadingPage />;
   }
 
   const editable =
@@ -75,11 +75,11 @@ export default function LeadDetailPage() {
   return (
     <div className="space-y-4">
       <div>
-        <Link href="/leads" className="text-sm text-brand hover:underline">
+        <Link href="/leads" className="inline-flex items-center gap-1 text-sm text-slate-500 transition hover:text-brand">
           ← Leads
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">{lead.companyName}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{lead.companyName}</h1>
           <StatusBadge status={lead.status} />
           <SlaBadge lead={lead} />
         </div>
@@ -221,8 +221,8 @@ function LeadData({ lead, onEdit }: { lead: LeadDetail; onEdit?: () => void }) {
     >
       <dl className="grid gap-3 sm:grid-cols-2">
         <Row label="Contacto" value={`${lead.contactName}${lead.contactTitle ? ` · ${lead.contactTitle}` : ''}`} />
-        <Row label="Correo" value={lead.email && <a className="text-brand hover:underline" href={`mailto:${lead.email}`}>{lead.email}</a>} />
-        <Row label="Teléfono" value={lead.phone && <a className="text-brand hover:underline" href={`tel:${lead.phone}`}>{lead.phone}</a>} />
+        <Row label="Correo" value={lead.email && <a className="link" href={`mailto:${lead.email}`}>{lead.email}</a>} />
+        <Row label="Teléfono" value={lead.phone && <a className="link" href={`tel:${lead.phone}`}>{lead.phone}</a>} />
         <Row label="WhatsApp" value={lead.whatsapp} />
         <Row label="RFC" value={lead.rfc} />
         <Row label="Industria" value={lead.industry} />

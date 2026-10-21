@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ContactFields, contactPayload, type ContactFormValues } from '@/components/contact-fields';
-import { Button, Card, ErrorText, Field, Input, Select } from '@/components/ui';
+import { Button, Card, ErrorText, Field, Input, LoadingPage, Select } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import type { AccountDetail, AccountListItem } from '@/lib/crm';
 import type { LeadDetail } from '@/lib/leads';
@@ -126,7 +126,7 @@ export default function ConvertLeadPage() {
     }
   }
 
-  if (!lead) return <p className="text-slate-500">Cargando…</p>;
+  if (!lead) return <LoadingPage />;
   if (lead.status !== 'CALIFICADO') {
     return <ErrorText>Solo un lead calificado se puede convertir. Este lead está en otro estado.</ErrorText>;
   }
@@ -137,10 +137,10 @@ export default function ConvertLeadPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div>
-        <Link href={`/leads/${id}`} className="text-sm text-brand hover:underline">
+        <Link href={`/leads/${id}`} className="inline-flex items-center gap-1 text-sm text-slate-500 transition hover:text-brand">
           ← {lead.folio} · {lead.companyName}
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">Convertir lead</h1>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">Convertir lead</h1>
         <p className="text-sm text-slate-500">
           Se crea la oportunidad y el lead queda como historial de solo consulta.
         </p>
@@ -156,7 +156,7 @@ export default function ConvertLeadPage() {
           </button>
         </div>
         {accountMatches.length > 0 && accountMode === 'new' && (
-          <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Ya hay {accountMatches.length === 1 ? 'una cuenta parecida' : `${accountMatches.length} cuentas parecidas`}:{' '}
             {accountMatches.slice(0, 3).map((a, i) => (
               <span key={a.id}>

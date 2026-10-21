@@ -1,9 +1,22 @@
 'use client';
 
+import { Building2, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, ErrorText, Field, Input, Modal } from '@/components/ui';
+import {
+  Button,
+  EmptyState,
+  ErrorText,
+  Field,
+  Input,
+  LoadingTable,
+  Modal,
+  PageHeader,
+  Spinner,
+  Toolbar,
+  MobileCard,
+} from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import type { AccountListItem } from '@/lib/crm';
 import { canWriteAccounts } from '@/lib/permissions';
@@ -39,54 +52,92 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Cuentas</h1>
-        {canWriteAccounts(user) && <Button onClick={() => setCreating(true)}>Nueva cuenta</Button>}
-      </div>
+      <PageHeader
+        title="Cuentas"
+        description="Empresas cliente con sus contactos y oportunidades."
+        actions={
+          canWriteAccounts(user) && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="size-4" /> Nueva cuenta
+            </Button>
+          )
+        }
+      />
 
-      <Input placeholder="Buscar por nombre, razón social o RFC" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar" />
+      <Toolbar>
+        <div className="relative w-full">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+          <Input
+            className="pl-9"
+            placeholder="Buscar por nombre, razón social o RFC"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Buscar"
+          />
+        </div>
+      </Toolbar>
       <ErrorText>{error}</ErrorText>
 
+      {!data && !error && <LoadingTable />}
       {data &&
         (data.items.length ? (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-3 py-2">Cuenta</th>
-                  <th className="px-3 py-2">RFC</th>
-                  <th className="px-3 py-2">Industria</th>
-                  <th className="px-3 py-2">Ubicación</th>
-                  <th className="px-3 py-2">Responsable</th>
-                  <th className="px-3 py-2 text-right">Contactos</th>
-                  <th className="px-3 py-2 text-right">Oportunidades</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((a) => (
-                  <tr key={a.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                    <td className="px-3 py-2">
-                      <Link href={`/cuentas/${a.id}`} className="font-medium hover:underline">
-                        {a.name}
-                      </Link>
-                      {a.legalName && <div className="text-slate-500">{a.legalName}</div>}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">{a.rfc ?? '—'}</td>
-                    <td className="px-3 py-2">{a.industry ?? '—'}</td>
-                    <td className="px-3 py-2">{[a.city, a.state].filter(Boolean).join(', ') || '—'}</td>
-                    <td className="px-3 py-2">{a.owner?.name ?? '—'}</td>
-                    <td className="px-3 py-2 text-right">{a._count.contacts}</td>
-                    <td className="px-3 py-2 text-right">{a._count.opportunities}</td>
+          <>
+            <ul className="space-y-2 md:hidden">
+              {data.items.map((a) => (
+                <MobileCard
+                  key={a.id}
+                  href={`/cuentas/${a.id}`}
+                  title={a.name}
+                  subtitle={[a.industry, [a.city, a.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ') || undefined}
+                  meta={
+                    <>
+                      <span>{a._count.contacts} contactos</span>
+                      <span>{a._count.opportunities} oportunidades</span>
+                      {a.owner && <span>{a.owner.name}</span>}
+                    </>
+                  }
+                />
+              ))}
+            </ul>
+            <div className="table-card hidden md:block">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="table-head">
+                  <tr>
+                    <th className="px-4 py-2.5">Cuenta</th>
+                    <th className="px-4 py-2.5">RFC</th>
+                    <th className="px-4 py-2.5">Industria</th>
+                    <th className="px-4 py-2.5">Ubicación</th>
+                    <th className="px-4 py-2.5">Responsable</th>
+                    <th className="px-4 py-2.5 text-right">Contactos</th>
+                    <th className="px-4 py-2.5 text-right">Oportunidades</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="border-t border-slate-100 px-3 py-2 text-xs text-slate-500">{data.total} cuentas</p>
-          </div>
+                </thead>
+                <tbody>
+                  {data.items.map((a) => (
+                    <tr key={a.id} className="table-row">
+                      <td className="px-4 py-3">
+                        <Link href={`/cuentas/${a.id}`} className="font-medium text-slate-900 hover:text-brand">
+                          {a.name}
+                        </Link>
+                        {a.legalName && <div className="text-slate-500">{a.legalName}</div>}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs">{a.rfc ?? '—'}</td>
+                      <td className="px-4 py-3">{a.industry ?? '—'}</td>
+                      <td className="px-4 py-3">{[a.city, a.state].filter(Boolean).join(', ') || '—'}</td>
+                      <td className="px-4 py-3">{a.owner?.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-right">{a._count.contacts}</td>
+                      <td className="px-4 py-3 text-right">{a._count.opportunities}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="table-foot">{data.total} cuentas</p>
+            </div>
+          </>
         ) : (
-          <p className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-            No hay cuentas{q ? ' con esa búsqueda' : ''}. Se crean al convertir un lead o con “Nueva cuenta”.
-          </p>
+          <EmptyState title={q ? 'No hay cuentas con esa búsqueda' : 'Aún no hay cuentas'} icon={Building2}>
+            Se crean al convertir un lead o con “Nueva cuenta”.
+          </EmptyState>
         ))}
 
       {creating && <NewAccountModal onClose={() => setCreating(false)} />}
@@ -114,7 +165,7 @@ function NewAccountModal({ onClose }: { onClose: () => void }) {
       router.push(`/cuentas/${a.id}`);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409 && typeof e.body?.accountId === 'string') setExistingId(e.body.accountId);
-      setError(e instanceof ApiError ? (e.errors?.map((x) => x.message).join('. ') || e.message) : 'No se pudo crear la cuenta');
+      setError(e instanceof ApiError ? e.errors?.map((x) => x.message).join('. ') || e.message : 'No se pudo crear la cuenta');
       setSaving(false);
     }
   }
@@ -136,7 +187,7 @@ function NewAccountModal({ onClose }: { onClose: () => void }) {
         </Field>
         <ErrorText>{error}</ErrorText>
         {existingId && (
-          <Link href={`/cuentas/${existingId}`} className="block text-sm text-brand hover:underline">
+          <Link href={`/cuentas/${existingId}`} className="block text-sm link">
             Ver la cuenta existente →
           </Link>
         )}
@@ -145,6 +196,7 @@ function NewAccountModal({ onClose }: { onClose: () => void }) {
             Cancelar
           </Button>
           <Button onClick={save} disabled={saving || !form.name.trim()}>
+            {saving && <Spinner className="size-4" />}
             Crear cuenta
           </Button>
         </div>

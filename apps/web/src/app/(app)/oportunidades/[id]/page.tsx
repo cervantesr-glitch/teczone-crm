@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Activities } from '@/components/activities';
 import { QuoteStatusBadge } from '@/components/quote-badge';
 import { StageBadge } from '@/components/stage-badge';
-import { Button, Card, ErrorText, Field, Input, Modal, Select, Textarea } from '@/components/ui';
+import { Button, Card, ErrorText, Field, Input, LoadingPage, Modal, Select, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import type { OpportunityDetail } from '@/lib/crm';
 import { formatDate, formatDateTime, formatMoney } from '@/lib/format';
@@ -47,7 +47,7 @@ export default function OpportunityPage() {
     load();
   }, [load]);
 
-  if (!opp) return error ? <ErrorText>{error}</ErrorText> : <p className="text-slate-500">Cargando…</p>;
+  if (!opp) return error ? <ErrorText>{error}</ErrorText> : <LoadingPage />;
 
   const editable = canEditOpportunity(user, opp.owner.id);
   const closed = CLOSED_STAGES.includes(opp.stage);
@@ -115,16 +115,16 @@ export default function OpportunityPage() {
   return (
     <div className="space-y-4">
       <div>
-        <Link href="/oportunidades" className="text-sm text-brand hover:underline">
+        <Link href="/oportunidades" className="inline-flex items-center gap-1 text-sm text-slate-500 transition hover:text-brand">
           ← Oportunidades
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">{opp.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{opp.name}</h1>
           <StageBadge stage={opp.stage} />
         </div>
         <p className="text-sm text-slate-500">
           <span className="font-mono">{opp.folio}</span> ·{' '}
-          <Link href={`/cuentas/${opp.account.id}`} className="text-brand hover:underline">
+          <Link href={`/cuentas/${opp.account.id}`} className="link">
             {opp.account.name}
           </Link>{' '}
           · {PIPELINE_LABELS[opp.pipeline]} · Responsable: {opp.owner.name}
@@ -189,7 +189,7 @@ export default function OpportunityPage() {
               <ul className="divide-y divide-slate-100">
                 {opp.quotes.map((q) => (
                   <li key={q.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                    <Link href={`/cotizaciones/${q.id}`} className="font-mono text-brand hover:underline">
+                    <Link href={`/cotizaciones/${q.id}`} className="font-mono link">
                       {q.folio} v{q.version.number}
                     </Link>
                     <div className="flex items-center gap-3">
@@ -306,7 +306,7 @@ export default function OpportunityPage() {
               {opp.sourceLeads.length > 0 && (
                 <Item label="Lead de origen">
                   {opp.sourceLeads.map((l) => (
-                    <Link key={l.id} href={`/leads/${l.id}`} className="mr-2 font-mono text-brand hover:underline">
+                    <Link key={l.id} href={`/leads/${l.id}`} className="mr-2 font-mono link">
                       {l.folio}
                     </Link>
                   ))}

@@ -8,11 +8,12 @@ import {
   LEAD_STATUSES,
   type LeadStatus,
 } from '@teczone/shared';
+import { AlarmClock, Columns3, List, Plus, Search, UserPlus, UserX } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { DisqualifyModal } from '@/components/disqualify-modal';
 import { SlaBadge, StatusBadge } from '@/components/lead-badges';
-import { ErrorText, Input, Select } from '@/components/ui';
+import { ButtonLink, EmptyState, ErrorText, Input, LoadingTable, PageHeader, Select, StatCard, Toolbar, MobileCard } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { formatDate, formatDateTime } from '@/lib/format';
 import type { LeadListItem } from '@/lib/leads';
@@ -52,10 +53,7 @@ export default function LeadsPage() {
     if (interestType) params.set('interestType', interestType);
     if (ownerId) params.set('ownerId', ownerId);
     try {
-      const [list, sum] = await Promise.all([
-        api<ListResponse>(`/leads?${params}`),
-        api<Summary>('/leads/summary'),
-      ]);
+      const [list, sum] = await Promise.all([api<ListResponse>(`/leads?${params}`), api<Summary>('/leads/summary')]);
       setData(list);
       setSummary(sum);
       setError(null);
@@ -77,26 +75,36 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Leads</h1>
-        {canWriteLeads(user) && (
-          <Link href="/leads/nuevo" className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-white hover:bg-brand-dark">
-            Nuevo lead
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="Leads"
+        description="Prospectos recibidos, su estado y el tiempo de primer contacto."
+        actions={
+          canWriteLeads(user) && (
+            <ButtonLink href="/leads/nuevo">
+              <Plus className="size-4" /> Nuevo lead
+            </ButtonLink>
+          )
+        }
+      />
 
       {summary && (
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <Stat label="Activos" value={active} />
-          <Stat label="Contacto vencido" value={summary.overdueFirstContact} alert={summary.overdueFirstContact > 0} />
-          <Stat label="Sin responsable" value={summary.unassigned} alert={summary.unassigned > 0} />
+          <StatCard label="Activos" value={active} icon={UserPlus} />
+          <StatCard
+            label="Contacto vencido"
+            value={summary.overdueFirstContact}
+            icon={AlarmClock}
+            tone={summary.overdueFirstContact > 0 ? 'alert' : 'good'}
+          />
+          <StatCard label="Sin responsable" value={summary.unassigned} icon={UserX} tone={summary.unassigned > 0 ? 'warn' : 'neutral'} />
         </div>
       )}
 
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-48 flex-1">
+      <Toolbar>
+        <div className="relative w-full sm:w-auto sm:min-w-64 sm:flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
           <Input
+            className="pl-9"
             placeholder="Buscar empresa, contacto, correo, teléfono, RFC o folio"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -104,7 +112,7 @@ export default function LeadsPage() {
           />
         </div>
         {view === 'lista' && (
-          <Select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Estado" className="w-auto">
+          <Select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Estado" className="w-full sm:w-auto">
             <option value="">Todos los estados</option>
             {LEAD_STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -113,7 +121,7 @@ export default function LeadsPage() {
             ))}
           </Select>
         )}
-        <Select value={interestType} onChange={(e) => setInterestType(e.target.value)} aria-label="Interés" className="w-auto">
+        <Select value={interestType} onChange={(e) => setInterestType(e.target.value)} aria-label="Interés" className="w-full sm:w-auto">
           <option value="">Todo interés</option>
           {LEAD_INTEREST_TYPES.map((t) => (
             <option key={t} value={t}>
@@ -121,7 +129,7 @@ export default function LeadsPage() {
             </option>
           ))}
         </Select>
-        <Select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} aria-label="Responsable" className="w-auto">
+        <Select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} aria-label="Responsable" className="w-full sm:w-auto">
           <option value="">{hasFullLeadAccess(user) ? 'Todos los responsables' : 'Míos y sin asignar'}</option>
           {user && <option value={user.id}>Solo míos</option>}
           <option value="none">Sin responsable</option>
@@ -134,103 +142,131 @@ export default function LeadsPage() {
                 </option>
               ))}
         </Select>
-        <div className="flex rounded-md border border-slate-300 bg-white p-0.5" role="tablist">
-          {(['lista', 'tablero'] as View[]).map((v) => (
-            <button
-              key={v}
-              role="tab"
-              aria-selected={view === v}
-              onClick={() => setView(v)}
-              className={`rounded px-3 py-1.5 text-sm capitalize ${view === v ? 'bg-brand text-white' : ''}`}
-            >
-              {v}
-            </button>
-          ))}
+        <div className="flex rounded-lg bg-slate-100 p-0.5" role="tablist">
+          {(['lista', 'tablero'] as View[]).map((v) => {
+            const Icon = v === 'lista' ? List : Columns3;
+            return (
+              <button
+                key={v}
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium capitalize transition ${
+                  view === v ? 'bg-white text-brand shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Icon className="size-4" aria-hidden />
+                {v}
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </Toolbar>
 
       <ErrorText>{error}</ErrorText>
 
+      {!data && !error && <LoadingTable />}
       {data &&
         (view === 'lista' ? (
           <LeadTable items={data.items} total={data.total} />
         ) : (
-          <LeadBoard items={data.items} onChanged={load} canMove={canWriteLeads(user)} canMoveAny={canAssignLeads(user)} userId={user?.id} />
+          <LeadBoard
+            items={data.items}
+            onChanged={load}
+            canMove={canWriteLeads(user)}
+            canMoveAny={canAssignLeads(user)}
+            userId={user?.id}
+          />
         ))}
-    </div>
-  );
-}
-
-function Stat({ label, value, alert }: { label: string; value: number; alert?: boolean }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
-      <div className="text-xs text-slate-500 sm:text-sm">{label}</div>
-      <div className={`text-2xl font-semibold ${alert ? 'text-red-600' : ''}`}>{value}</div>
     </div>
   );
 }
 
 function LeadTable({ items, total }: { items: LeadListItem[]; total: number }) {
   if (!items.length) {
-    return <p className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">No hay leads con estos filtros.</p>;
+    return (
+      <EmptyState title="No hay leads con estos filtros" icon={UserPlus}>
+        Prueba con otra búsqueda o limpia los filtros.
+      </EmptyState>
+    );
   }
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-      <table className="w-full min-w-[860px] text-left text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-          <tr>
-            <th className="px-3 py-2">Folio</th>
-            <th className="px-3 py-2">Empresa / contacto</th>
-            <th className="px-3 py-2">Interés</th>
-            <th className="px-3 py-2">Estado</th>
-            <th className="px-3 py-2">Responsable</th>
-            <th className="px-3 py-2">Próxima acción</th>
-            <th className="px-3 py-2">Recibido</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((l) => (
-            <tr key={l.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-              <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">
-                <Link href={`/leads/${l.id}`} className="text-brand hover:underline">
-                  {l.folio}
-                </Link>
-              </td>
-              <td className="px-3 py-2">
-                <Link href={`/leads/${l.id}`} className="font-medium hover:underline">
-                  {l.companyName}
-                </Link>
-                <div className="text-slate-500">{l.contactName}</div>
-              </td>
-              <td className="px-3 py-2">{LEAD_INTEREST_LABELS[l.interestType]}</td>
-              <td className="space-y-1 px-3 py-2">
-                <StatusBadge status={l.status} />
-                <div>
-                  <SlaBadge lead={l} />
-                </div>
-              </td>
-              <td className="px-3 py-2">{l.owner?.name ?? <span className="text-amber-700">Sin asignar</span>}</td>
-              <td className="px-3 py-2">
-                {l.nextAction ? (
-                  <>
-                    <div>{l.nextAction.subject}</div>
-                    <div className={new Date(l.nextAction.dueAt) < new Date() ? 'text-red-600' : 'text-slate-500'}>
-                      {formatDateTime(l.nextAction.dueAt)}
-                    </div>
-                  </>
-                ) : (
-                  <span className="text-slate-400">Sin próxima acción</span>
-                )}
-              </td>
-              <td className="px-3 py-2 text-slate-500">{formatDate(l.receivedAt)}</td>
+    <>
+      <ul className="space-y-2 md:hidden">
+        {items.map((l) => (
+          <MobileCard
+            key={l.id}
+            href={`/leads/${l.id}`}
+            title={l.companyName}
+            subtitle={l.contactName}
+            badge={<StatusBadge status={l.status} />}
+            meta={
+              <>
+                <span className="font-mono">{l.folio}</span>
+                <span>{l.owner?.name ?? 'Sin asignar'}</span>
+                <span>{formatDate(l.receivedAt)}</span>
+                <SlaBadge lead={l} />
+              </>
+            }
+          />
+        ))}
+        <li className="px-1 text-xs text-slate-500">{items.length < total ? `Mostrando ${items.length} de ${total}` : `${total} leads`}</li>
+      </ul>
+      <div className="table-card hidden md:block">
+        <table className="w-full min-w-[860px] text-left text-sm">
+          <thead className="table-head">
+            <tr>
+              <th className="px-4 py-2.5">Folio</th>
+              <th className="px-4 py-2.5">Empresa / contacto</th>
+              <th className="px-4 py-2.5">Interés</th>
+              <th className="px-4 py-2.5">Estado</th>
+              <th className="px-4 py-2.5">Responsable</th>
+              <th className="px-4 py-2.5">Próxima acción</th>
+              <th className="px-4 py-2.5">Recibido</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="border-t border-slate-200 px-3 py-2 text-xs text-slate-500">
-        {items.length < total ? `Mostrando ${items.length} de ${total}` : `${total} leads`}
+          </thead>
+          <tbody>
+            {items.map((l) => (
+              <tr key={l.id} className="table-row">
+                <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">
+                  <Link href={`/leads/${l.id}`} className="link">
+                    {l.folio}
+                  </Link>
+                </td>
+                <td className="px-4 py-3">
+                  <Link href={`/leads/${l.id}`} className="font-medium text-slate-900 hover:text-brand">
+                    {l.companyName}
+                  </Link>
+                  <div className="text-slate-500">{l.contactName}</div>
+                </td>
+                <td className="px-4 py-3">{LEAD_INTEREST_LABELS[l.interestType]}</td>
+                <td className="space-y-1 px-4 py-3">
+                  <StatusBadge status={l.status} />
+                  <div>
+                    <SlaBadge lead={l} />
+                  </div>
+                </td>
+                <td className="px-4 py-3">{l.owner?.name ?? <span className="text-amber-700">Sin asignar</span>}</td>
+                <td className="px-4 py-3">
+                  {l.nextAction ? (
+                    <>
+                      <div>{l.nextAction.subject}</div>
+                      <div className={new Date(l.nextAction.dueAt) < new Date() ? 'text-red-600' : 'text-slate-500'}>
+                        {formatDateTime(l.nextAction.dueAt)}
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-slate-400">Sin próxima acción</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-slate-500">{formatDate(l.receivedAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="table-foot">{items.length < total ? `Mostrando ${items.length} de ${total}` : `${total} leads`}</div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -289,11 +325,11 @@ function LeadBoard({
                 if (dragging) move(dragging, col);
                 setDragging(null);
               }}
-              className={`w-64 shrink-0 rounded-lg p-2 ${droppable ? 'bg-sky-50 ring-2 ring-sky-300' : 'bg-slate-100'}`}
+              className={`w-72 shrink-0 rounded-xl p-2.5 transition ${droppable ? 'bg-brand-50 ring-2 ring-brand-300' : 'bg-slate-100/80'}`}
             >
-              <div className="mb-2 flex items-center justify-between px-1 text-sm font-medium">
+              <div className="mb-2.5 flex items-center justify-between px-1 text-sm font-semibold text-slate-700">
                 <span>{LEAD_STATUS_LABELS[col]}</span>
-                <span className="text-slate-500">{cards.length}</span>
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-500 shadow-xs">{cards.length}</span>
               </div>
               <div className="space-y-2">
                 {cards.map((l) => (
@@ -302,9 +338,9 @@ function LeadBoard({
                     draggable={movable(l)}
                     onDragStart={() => setDragging(l)}
                     onDragEnd={() => setDragging(null)}
-                    className={`rounded-md border border-slate-200 bg-white p-3 text-sm shadow-sm ${movable(l) ? 'cursor-grab' : ''}`}
+                    className={`rounded-lg border border-slate-200/80 bg-white p-3 text-sm shadow-card transition hover:border-brand-200 hover:shadow-md ${movable(l) ? 'cursor-grab active:cursor-grabbing' : ''}`}
                   >
-                    <Link href={`/leads/${l.id}`} className="font-medium hover:underline">
+                    <Link href={`/leads/${l.id}`} className="font-medium hover:text-brand">
                       {l.companyName}
                     </Link>
                     <div className="text-slate-500">{l.contactName}</div>
@@ -322,7 +358,9 @@ function LeadBoard({
           );
         })}
       </div>
-      <p className="text-xs text-slate-500">Arrastra una tarjeta para cambiar su estado. Los leads convertidos aparecen en la vista de lista.</p>
+      <p className="text-xs text-slate-500">
+        Arrastra una tarjeta para cambiar su estado. Los leads convertidos aparecen en la vista de lista.
+      </p>
       {pendingDisqualify && (
         <DisqualifyModal
           onCancel={() => setPendingDisqualify(null)}
