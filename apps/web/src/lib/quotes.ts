@@ -62,15 +62,7 @@ export interface QuoteListItem {
   updatedAt: string;
   owner: Ref;
   opportunity: Ref & { account: Ref };
-  version: {
-    number: number;
-    currency: 'MXN' | 'USD';
-    subtotal: string;
-    total: string;
-    totalCost: string;
-    marginPct: string;
-    validUntil: string;
-  };
+  version: { number: number; currency: 'MXN' | 'USD'; total: string; marginPct: string; validUntil: string };
   nextAction: NextAction | null;
 }
 
@@ -105,7 +97,7 @@ export interface OpportunityQuote {
   id: string;
   folio: string;
   status: QuoteStatus;
-  version: { number: number; currency: 'MXN' | 'USD'; subtotal: string; total: string; totalCost: string; marginPct: string };
+  version: { number: number; currency: 'MXN' | 'USD'; total: string; marginPct: string };
 }
 
 export const QUOTE_STATUS_STYLES: Record<QuoteStatus, string> = {

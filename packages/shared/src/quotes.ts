@@ -136,32 +136,25 @@ export function computeQuoteTotals(lines: QuoteLineInput[], taxRate: number) {
   return { subtotal, tax, total: round2(subtotal + tax), totalCost, marginPct };
 }
 
-// ---------- Margen sobre costo ----------
-// Política del cliente: la partida se captura con costo y margen %, y el margen se aplica
-// sobre el costo: precio = costo × (1 + margen%). Ese mismo margen sobre costo es el que se
-// compara contra el mínimo configurado para pedir autorización (FR-05). El margen sobre la
-// venta (marginPct) se sigue guardando como referencia para indicadores.
+// ---------- Precio a partir del margen ----------
+// La partida se captura con costo y margen deseado; el precio de venta se calcula con la
+// fórmula del cliente: precio = costo / (1 − margen%). Es la misma definición de margen (sobre
+// la venta) que se valida contra el mínimo, así que el margen capturado es el que se autoriza.
+// No es markup: costo × (1 + margen%) daría un margen real menor al capturado.
 
-// Margen mínimo capturable: con −100% o menos el precio sería cero o negativo.
-export const MIN_LINE_MARGIN_PCT = -99.99;
+// Margen máximo capturable: con 100% o más el precio sería infinito o negativo.
+export const MAX_LINE_MARGIN_PCT = 99.99;
 
 // Redondea hacia arriba al centavo para que el margen real nunca quede por debajo del capturado.
 export function priceFromMargin(unitCost: number, marginPct: number) {
-  if (!(marginPct >= MIN_LINE_MARGIN_PCT)) return NaN;
-  const cents = unitCost * (1 + marginPct / 100) * 100;
-  // La tolerancia evita subir un centavo por ruido de punto flotante (p. ej. 23000.000000001).
+  if (!(marginPct < 100)) return NaN;
+  const cents = (unitCost / (1 - marginPct / 100)) * 100;
+  // La tolerancia evita subir un centavo por ruido de punto flotante (p. ej. 40000.000000001).
   return Math.ceil(cents - 1e-6) / 100;
 }
 
 export function marginFromPrice(unitCost: number, unitPrice: number) {
-  return costMarginPct(unitPrice, unitCost);
-}
-
-// Margen sobre costo de una venta. Sin costo no hay base: se usa el margen sobre la venta
-// (100% si hay venta, 0% si no), como antes del cambio, para que precio cero pida autorización.
-export function costMarginPct(sale: number, cost: number) {
-  if (cost > 0) return round2(((sale - cost) / cost) * 100);
-  return sale > 0 ? 100 : 0;
+  return unitPrice > 0 ? round2(((unitPrice - unitCost) / unitPrice) * 100) : 0;
 }
 
 // ---------- Esquemas ----------
