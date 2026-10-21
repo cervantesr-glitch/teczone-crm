@@ -229,10 +229,19 @@ export default function QuotePage() {
         </div>
       ) : null}
 
-      {quote.versions.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-slate-500">Versiones:</span>
-          {quote.versions.map((v) => (
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <a
+          href={`/api/quotes/${id}/pdf?version=${shown.number}`}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 font-medium hover:bg-slate-50"
+        >
+          PDF v{shown.number}
+        </a>
+        {editing && dirty && <span className="text-xs text-slate-500">Guarda el borrador para verlo en el PDF.</span>}
+        {quote.versions.length > 1 && <span className="ml-2 text-slate-500">Versiones:</span>}
+        {quote.versions.length > 1 &&
+          quote.versions.map((v) => (
             <button
               key={v.number}
               onClick={() => setViewNumber(v.number)}
@@ -242,8 +251,7 @@ export default function QuotePage() {
               {v.number === current.number ? ' (vigente)' : ' (sustituida)'}
             </button>
           ))}
-        </div>
-      )}
+      </div>
 
       {editing ? (
         <Editor

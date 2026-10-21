@@ -5,3 +5,4 @@ export * from './business-hours';
 export * from './opportunities';
 export * from './auth';
 export * from './quotes';
+export * from './amount-words';

@@ -1,6 +1,6 @@
 'use client';
 
-import { CURRENCIES, PRODUCT_CATEGORIES, type QuoteSettings } from '@teczone/shared';
+import { CURRENCIES, PRODUCT_CATEGORIES, type CompanySettings, type QuoteSettings } from '@teczone/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Card, ErrorText, Field, Input, Modal, Select, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -119,6 +119,7 @@ export default function CatalogPage() {
         ))}
 
       {canApproveQuotes(user) && <QuoteSettingsCard />}
+      {canApproveQuotes(user) && <CompanySettingsCard />}
 
       {editing && (
         <ProductModal
@@ -288,6 +289,64 @@ function QuoteSettingsCard() {
       <div className="mt-3 flex items-center justify-end gap-3">
         {saved && <span className="text-sm text-emerald-700">Guardado</span>}
         <Button onClick={save}>Guardar parámetros</Button>
+      </div>
+    </Card>
+  );
+}
+
+const COMPANY_FIELDS: [keyof CompanySettings, string][] = [
+  ['name', 'Nombre comercial *'],
+  ['legalName', 'Razón social'],
+  ['rfc', 'RFC'],
+  ['address', 'Dirección'],
+  ['phone', 'Teléfono'],
+  ['email', 'Correo'],
+  ['website', 'Sitio web'],
+];
+
+// Datos del emisor en el encabezado del PDF de cotización (FR-06).
+function CompanySettingsCard() {
+  const [form, setForm] = useState<CompanySettings | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api<CompanySettings>('/settings/company').then(setForm).catch((e) => setError(errorMessage(e, 'No se pudieron cargar los datos de la empresa')));
+  }, []);
+
+  if (!form) return error ? <ErrorText>{error}</ErrorText> : null;
+
+  async function save() {
+    try {
+      setForm(await api<CompanySettings>('/settings/company', { method: 'PUT', body: JSON.stringify(form) }));
+      setError(null);
+      setSaved(true);
+    } catch (e) {
+      setError(errorMessage(e, 'No se pudieron guardar los datos de la empresa'));
+    }
+  }
+
+  return (
+    <Card title="Datos de la empresa para el PDF">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {COMPANY_FIELDS.map(([k, label]) => (
+          <Field key={k} label={label}>
+            <Input
+              value={form[k]}
+              onChange={(e) => {
+                setSaved(false);
+                setForm({ ...form, [k]: e.target.value });
+              }}
+            />
+          </Field>
+        ))}
+      </div>
+      <ErrorText>{error}</ErrorText>
+      <div className="mt-3 flex items-center justify-end gap-3">
+        {saved && <span className="text-sm text-emerald-700">Guardado</span>}
+        <Button onClick={save} disabled={!form.name.trim()}>
+          Guardar datos
+        </Button>
       </div>
     </Card>
   );

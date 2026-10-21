@@ -37,10 +37,12 @@ La conversión (`POST /api/leads/:id/convert`, FR-25) corre en una transacción:
 
 Una oportunidad puede tener varias cotizaciones (folio `COT-000000`), y cada una, varias versiones. Cada versión fija partidas, TC, IVA, vigencia, términos y el margen mínimo vigente al crearla; las anteriores a la vigente cubren el estado "Sustituida" del BRD. El cálculo de totales y margen vive en `packages/shared/src/quotes.ts` y lo usan la API y la web.
 
+El PDF (`GET /api/quotes/:id/pdf?version=n`) se genera en la API con pdfkit, sin navegador, para que funcione en el hosting de Node de Hostinger. Lleva el logo de `apps/api/assets/logo.png`, los datos de la empresa de `/api/settings/company`, las partidas sin costos ni margen, los totales con importe con letra y los términos. Lo no autorizado sale con marca de agua "BORRADOR".
+
 Flujo: Borrador → (margen menor al mínimo) Pendiente de autorización → Autorizada → Enviada → En negociación → Aceptada o Rechazada. Una enviada cuya vigencia pasa queda Vencida al consultarla. Enviar exige programar el seguimiento (RN-05) y, en PyME, mueve la oportunidad a "Cotización enviada". Autorizan y cambian parámetros (`/api/settings/quotes`) Administración y Gerencia Comercial; el catálogo lo mantienen además Compras/Operaciones.
 
 ## Orden de entregas (BRD v1.1)
 
 1. Leads, conversión a cuenta, contacto y oportunidad
-2. Generación y gestión de cotizaciones (en curso; falta el PDF)
+2. Generación y gestión de cotizaciones
 3. Elaboración y seguimiento de contratos de servicio

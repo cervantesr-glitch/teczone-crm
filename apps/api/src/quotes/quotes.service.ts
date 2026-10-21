@@ -21,6 +21,7 @@ import { ActivitiesService } from '../activities/activities.service';
 import type { AuthUser } from '../auth/types';
 import { hasAnyRole, QUOTE_APPROVER_ROLES, QUOTE_FULL_ROLES, QUOTE_WRITE_ROLES } from '../common/access';
 import { formatOpportunityFolio } from '../opportunities/opportunity-format';
+import { renderQuotePdf } from './quote-pdf';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 
@@ -431,6 +432,58 @@ export class QuotesService {
   async toggleActivity(id: string, activityId: string, user: AuthUser) {
     await this.editable(id, user);
     return this.activities.toggle('quote', id, activityId);
+  }
+
+  // PDF de una versión (la vigente por omisión), sin costos ni margen (FR-06).
+  async pdf(id: string, versionNumber: number | undefined, user: AuthUser) {
+    const quote = await this.prisma.quote.findFirst({
+      where: { id, deletedAt: null, ...this.visibility(user) },
+      include: {
+        owner: { select: { name: true, email: true } },
+        contact: true,
+        opportunity: { include: { account: true } },
+        versions: {
+          where: { number: versionNumber ?? undefined },
+          orderBy: { number: 'desc' },
+          take: 1,
+          include: { items: { orderBy: { position: 'asc' } } },
+        },
+      },
+    });
+    if (!quote) throw new NotFoundException('Cotización no encontrada');
+    const version = quote.versions[0];
+    if (!version) throw new NotFoundException('Versión no encontrada');
+    // Solo lo enviado o lo autorizado listo para enviar sale sin marca de agua.
+    const ready = !!version.issuedAt || (version.number === quote.currentVersion && quote.status === 'AUTORIZADA');
+    const account = quote.opportunity.account;
+    const filename = `${formatQuoteFolio(quote.folioNumber)}-v${version.number}.pdf`;
+    const buffer = await renderQuotePdf({
+      folio: formatQuoteFolio(quote.folioNumber, version.number),
+      draft: !ready,
+      date: version.issuedAt ?? version.approvedAt ?? version.updatedAt,
+      validUntil: version.validUntil,
+      currency: version.currency,
+      exchangeRate: Number(version.exchangeRate),
+      taxRate: Number(version.taxRate),
+      subtotal: Number(version.subtotal),
+      tax: Number(version.tax),
+      total: Number(version.total),
+      terms: version.terms,
+      notes: version.notes,
+      company: await this.settings.companySettings(),
+      client: { name: account.name, legalName: account.legalName, rfc: account.rfc, city: account.city },
+      contact: quote.contact,
+      seller: quote.owner,
+      items: version.items.map((i) => ({
+        sku: i.sku,
+        description: i.description,
+        quantity: Number(i.quantity),
+        unitPrice: Number(i.unitPrice),
+        discountPct: Number(i.discountPct),
+        lineTotal: Number(i.lineTotal),
+      })),
+    });
+    return { filename, buffer };
   }
 
   // ---------- Apoyo ----------

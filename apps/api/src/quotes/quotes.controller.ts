@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Put, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   createActivitySchema,
   createQuoteSchema,
@@ -34,6 +35,23 @@ export class QuotesController {
   @Get(':id')
   get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.quotes.get(id, user);
+  }
+
+  @Get(':id/pdf')
+  async pdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('version') version: string | undefined,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+  ) {
+    const n = version ? Number.parseInt(version, 10) : undefined;
+    const { filename, buffer } = await this.quotes.pdf(id, Number.isFinite(n) ? n : undefined, user);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${filename}"`,
+      'Content-Length': String(buffer.length),
+    });
+    res.end(buffer);
   }
 
   @Roles(...QUOTE_WRITE_ROLES)

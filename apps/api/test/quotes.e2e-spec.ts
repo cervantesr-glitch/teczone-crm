@@ -281,6 +281,39 @@ describe('Cotizaciones (e2e)', () => {
     });
   });
 
+  describe('PDF (FR-06)', () => {
+    const binary = (res: request.Response, cb: (err: Error | null, body: Buffer) => void) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => cb(null, Buffer.concat(chunks)));
+    };
+
+    it('genera el PDF de la versión vigente y de una anterior', async () => {
+      const list = await api().get('/api/quotes?status=ACEPTADA').set('Cookie', seller).expect(200);
+      const id = list.body.items[0].id;
+      const res = await api().get(`/api/quotes/${id}/pdf`).set('Cookie', seller).buffer(true).parse(binary).expect(200);
+      expect(res.headers['content-type']).toBe('application/pdf');
+      expect(res.headers['content-disposition']).toContain('-v2.pdf');
+      expect((res.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+      const v1 = await api().get(`/api/quotes/${id}/pdf?version=1`).set('Cookie', seller).buffer(true).parse(binary).expect(200);
+      expect(v1.headers['content-disposition']).toContain('-v1.pdf');
+    });
+
+    it('no da el PDF de una cotización ajena ni de una versión inexistente', async () => {
+      const list = await api().get('/api/quotes?status=ACEPTADA').set('Cookie', seller).expect(200);
+      const id = list.body.items[0].id;
+      await api().get(`/api/quotes/${id}/pdf`).set('Cookie', seller2).expect(404);
+      await api().get(`/api/quotes/${id}/pdf?version=9`).set('Cookie', seller).expect(404);
+    });
+
+    it('solo gerencia cambia los datos de la empresa', async () => {
+      const company = { name: 'TecZone', legalName: 'TecZone SA de CV', rfc: 'TEC010101AB1', address: 'Monterrey, NL', phone: '81 1234 5678', email: 'ventas@teczone.mx', website: 'teczone.mx' };
+      await api().put('/api/settings/company').set('Cookie', seller).send(company).expect(403);
+      const res = await api().put('/api/settings/company').set('Cookie', manager).send(company).expect(200);
+      expect(res.body.legalName).toBe('TecZone SA de CV');
+    });
+  });
+
   describe('parámetros (NFR-08)', () => {
     const settings = { minMarginPct: 25, validityDays: 30, taxRate: 16, usdExchangeRate: 19.1, terms: 'Nuevos términos' };
 
