@@ -1,6 +1,7 @@
-// Arranque de producción en Hostinger (app web Node.js): un solo proceso con la API
-// interna en 127.0.0.1:4000 y la web en el puerto público (PORT, 3000 por omisión).
-const { spawnSync } = require('node:child_process');
+// Arranque de producción en Hostinger (app web Node.js): la web en el puerto público y la
+// API interna en 127.0.0.1:4000 como proceso hijo.
+const { spawn, spawnSync } = require('node:child_process');
+const net = require('node:net');
 const { join } = require('node:path');
 
 process.env.NODE_ENV = 'production';
@@ -21,7 +22,27 @@ function run(args, label) {
 run([bin('prisma', 'build/index.js'), 'migrate', 'deploy'], 'migraciones');
 if (process.env.SEED_ADMIN_PASSWORD) run([bin('tsx', 'dist/cli.mjs'), 'prisma/seed.ts'], 'datos iniciales');
 
-require('./apps/api/dist/main.js');
+// Hostinger corre la app con LiteSpeed, que toma el primer listen() del proceso como el
+// puerto público e ignora los demás; por eso la API va en su propio proceso. Hostinger
+// puede levantar varias instancias: solo una arranca la API y las demás la reusan.
+let api = null;
+function apiListening() {
+  return new Promise((resolve) => {
+    const socket = net.connect(Number(process.env.API_PORT), process.env.API_HOST);
+    socket.once('connect', () => { socket.destroy(); resolve(true); });
+    socket.once('error', () => resolve(false));
+  });
+}
+async function ensureApi() {
+  if (!api && !(await apiListening())) {
+    api = spawn(process.execPath, [join(__dirname, 'apps', 'api', 'dist', 'main.js')], { stdio: 'inherit', env: process.env });
+    api.once('exit', () => { api = null; });
+  }
+  setTimeout(ensureApi, 5000).unref();
+}
+process.once('exit', () => api?.kill());
+process.once('SIGTERM', () => process.exit(0));
+ensureApi();
 
 const web = join(__dirname, 'apps', 'web', '.next', 'standalone', 'apps', 'web', 'server.js');
 process.env.PORT ??= '3000';
