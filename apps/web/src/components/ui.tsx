@@ -183,7 +183,7 @@ export function StatCard({
           <Icon className="size-5" aria-hidden />
         </span>
       )}
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-xs leading-tight font-medium text-slate-500 sm:truncate sm:text-sm">{label}</div>
         <div
           className={`mt-0.5 text-2xl font-semibold tracking-tight tabular-nums ${tone === 'alert' ? 'text-red-600' : 'text-slate-900'}`}

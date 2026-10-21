@@ -336,4 +336,57 @@ describe('Cotizaciones (e2e)', () => {
       expect(res.body.versions[0].terms).toBe('Nuevos términos');
     });
   });
+  describe('ganadas y perdidas del tablero (FR-10)', () => {
+    async function closedQuote(ownerId: string, status: 'ACEPTADA' | 'RECHAZADA' | 'VENCIDA', closedAt: Date, subtotal: number, currency: 'MXN' | 'USD' = 'MXN') {
+      await prisma.quote.create({
+        data: {
+          opportunityId,
+          ownerId,
+          createdById: ownerId,
+          status,
+          closedAt,
+          versions: {
+            create: [
+              // La versión 1 quedó sustituida: el importe sale de la vigente.
+              { number: 1, currency: 'MXN', exchangeRate: 18, taxRate: 16, minMarginPct: 15, validUntil: new Date(), subtotal: 1, createdById: ownerId },
+              { number: 2, currency, exchangeRate: 20, taxRate: 16, minMarginPct: 15, validUntil: new Date(), subtotal, createdById: ownerId },
+            ],
+          },
+          currentVersion: 2,
+        },
+      });
+    }
+
+    it('suma por año y mes con TC guardado y respeta la visibilidad', async () => {
+      const ownerId = (await prisma.user.findUniqueOrThrow({ where: { email: 'pyme2@test.mx' } })).id;
+      const before = (await api().get('/api/quotes/summary').set('Cookie', manager).expect(200)).body;
+      const sellerBefore = (await api().get('/api/quotes/summary').set('Cookie', seller).expect(200)).body;
+      const now = new Date();
+      const lastYear = new Date(Date.UTC(now.getUTCFullYear() - 1, 5, 15));
+      await closedQuote(ownerId, 'ACEPTADA', now, 1000);
+      await closedQuote(ownerId, 'ACEPTADA', now, 100, 'USD');
+      await closedQuote(ownerId, 'RECHAZADA', now, 500);
+      await closedQuote(ownerId, 'VENCIDA', now, 700);
+      await closedQuote(ownerId, 'ACEPTADA', lastYear, 9000);
+
+      const mine = (await api().get('/api/quotes/summary').set('Cookie', seller2).expect(200)).body;
+      expect(mine.won.month).toEqual({ count: 2, amountMxn: 3000 });
+      expect(mine.won.year).toEqual({ count: 2, amountMxn: 3000 });
+      expect(mine.lost.month).toEqual({ count: 1, amountMxn: 500 });
+
+      const all = (await api().get('/api/quotes/summary').set('Cookie', manager).expect(200)).body;
+      expect(all.won.year.count).toBe(before.won.year.count + 2);
+      expect(all.lost.year.amountMxn).toBe(before.lost.year.amountMxn + 500);
+
+      const other = (await api().get('/api/quotes/summary').set('Cookie', seller).expect(200)).body;
+      expect(other).toEqual(sellerBefore);
+    });
+
+    it('requiere un rol con acceso a cotizaciones', async () => {
+      await createUser(prisma, 'compras@test.mx', PASS, ['COMPRAS_OPERACIONES']);
+      const buyer = await loginCookies(app, 'compras@test.mx', PASS);
+      await api().get('/api/quotes/summary').set('Cookie', buyer).expect(403);
+      await api().get('/api/quotes/summary').expect(401);
+    });
+  });
 });

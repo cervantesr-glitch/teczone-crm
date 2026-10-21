@@ -1,7 +1,19 @@
 'use client';
 
-import { STAGE_LABELS, type LeadStatus, type OpportunityStage } from '@teczone/shared';
-import { AlarmClock, ArrowRight, BadgeCheck, CalendarClock, FileText, Plus, Target, UserPlus, Wallet } from 'lucide-react';
+import { STAGE_LABELS, type LeadStatus, type OpportunityStage, type PeriodTotals, type QuoteResultsSummary } from '@teczone/shared';
+import {
+  AlarmClock,
+  ArrowRight,
+  BadgeCheck,
+  CalendarClock,
+  FileText,
+  Plus,
+  Target,
+  Trophy,
+  UserPlus,
+  Wallet,
+  XCircle,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { StatusBadge } from '@/components/lead-badges';
@@ -24,6 +36,7 @@ interface Dashboard {
   opportunities?: List<OpportunityListItem>;
   quotesActive?: number;
   quotesPending?: number;
+  quoteResults?: QuoteResultsSummary;
 }
 
 const ACTIVE_STATUSES: LeadStatus[] = ['NUEVO', 'CONTACTADO', 'EN_CALIFICACION', 'CALIFICADO'];
@@ -51,14 +64,23 @@ export default function HomePage() {
       opps ? api<List<OpportunityListItem>>('/opportunities?open=true&pageSize=200') : undefined,
       quotes ? api<List<unknown>>('/quotes?active=true&pageSize=1') : undefined,
       quotes ? api<List<unknown>>('/quotes?status=PENDIENTE_APROBACION&pageSize=1') : undefined,
+      quotes ? api<QuoteResultsSummary>('/quotes/summary') : undefined,
     ])
-      .then(([leadSummary, recent, opportunities, active, pending]) =>
-        setData({ leadSummary, recentLeads: recent?.items, opportunities, quotesActive: active?.total, quotesPending: pending?.total }),
+      .then(([leadSummary, recent, opportunities, active, pending, quoteResults]) =>
+        setData({
+          leadSummary,
+          recentLeads: recent?.items,
+          opportunities,
+          quotesActive: active?.total,
+          quotesPending: pending?.total,
+          quoteResults,
+        }),
       )
       .catch((e) => setError(e instanceof ApiError ? e.message : 'No se pudo cargar el resumen'));
   }, [user]);
 
   const firstName = user?.name.split(' ')[0];
+  const statCount = (canSeeLeads(user) ? 2 : 0) + (canSeeOpportunities(user) ? 1 : 0) + (canSeeQuotes(user) ? 3 : 0);
   const activeLeads = ACTIVE_STATUSES.reduce((n, s) => n + (data?.leadSummary?.byStatus[s] ?? 0), 0);
   const opps = data?.opportunities?.items ?? [];
   const pipelineMxn = opps.filter((o) => (o.currency ?? 'MXN') === 'MXN').reduce((n, o) => n + Number(o.amount ?? 0), 0);
@@ -105,7 +127,8 @@ export default function HomePage() {
 
       <ErrorText>{error}</ErrorText>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Fila 1: pendientes de atención (conteos). Fila 2: montos. Con 6 tarjetas queda en 3x2. */}
+      <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${statCount === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
         {canSeeLeads(user) && (
           <StatCard
             label="Leads activos"
@@ -125,6 +148,16 @@ export default function HomePage() {
             hint={data?.leadSummary?.overdueFirstContact ? 'Requieren atención hoy' : 'Al día'}
           />
         )}
+        {canSeeQuotes(user) && (
+          <StatCard
+            label={canApproveQuotes(user) ? 'Por autorizar' : 'Cotizaciones activas'}
+            value={data ? ((canApproveQuotes(user) ? data.quotesPending : data.quotesActive) ?? 0) : '…'}
+            icon={canApproveQuotes(user) ? BadgeCheck : FileText}
+            tone={canApproveQuotes(user) && data?.quotesPending ? 'warn' : 'brand'}
+            href="/cotizaciones"
+            hint={canApproveQuotes(user) ? `${data?.quotesActive ?? 0} cotizaciones activas` : undefined}
+          />
+        )}
         {canSeeOpportunities(user) && (
           <StatCard
             label="Pipeline abierto"
@@ -141,12 +174,22 @@ export default function HomePage() {
         )}
         {canSeeQuotes(user) && (
           <StatCard
-            label={canApproveQuotes(user) ? 'Por autorizar' : 'Cotizaciones activas'}
-            value={data ? ((canApproveQuotes(user) ? data.quotesPending : data.quotesActive) ?? 0) : '…'}
-            icon={canApproveQuotes(user) ? BadgeCheck : FileText}
-            tone={canApproveQuotes(user) && data?.quotesPending ? 'warn' : 'brand'}
+            label="Ventas ganadas"
+            value={data ? <PeriodSplit summary={data.quoteResults} pick="won" /> : '…'}
+            icon={Trophy}
+            tone="good"
             href="/cotizaciones"
-            hint={canApproveQuotes(user) ? `${data?.quotesActive ?? 0} cotizaciones activas` : undefined}
+            hint="Cotizaciones aceptadas, sin IVA, en MXN"
+          />
+        )}
+        {canSeeQuotes(user) && (
+          <StatCard
+            label="Ventas perdidas"
+            value={data ? <PeriodSplit summary={data.quoteResults} pick="lost" /> : '…'}
+            icon={XCircle}
+            tone="neutral"
+            href="/cotizaciones"
+            hint="Cotizaciones rechazadas, sin IVA, en MXN"
           />
         )}
       </div>
@@ -271,6 +314,33 @@ function StageBars({ items }: { items: OpportunityListItem[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+// Importe y número de cotizaciones del mes en curso y del año acumulado.
+function PeriodSplit({ summary, pick }: { summary?: QuoteResultsSummary; pick: 'won' | 'lost' }) {
+  if (!summary) return <>—</>;
+  const monthName = new Intl.DateTimeFormat('es-MX', { month: 'long', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(summary.year, summary.month - 1, 1)),
+  );
+  const rows: [string, PeriodTotals][] = [
+    [monthName.charAt(0).toUpperCase() + monthName.slice(1), summary[pick].month],
+    [`Acumulado ${summary.year}`, summary[pick].year],
+  ];
+  return (
+    <dl className="mt-1 space-y-1">
+      {rows.map(([label, t]) => (
+        <div key={label} className="flex items-baseline justify-between gap-3">
+          <dt className="text-xs font-normal tracking-normal text-slate-500">{label}</dt>
+          <dd className="text-right">
+            <span className="text-lg text-slate-900">{formatMoney(t.amountMxn, 'MXN')}</span>
+            <span className="ml-1.5 text-xs font-normal tracking-normal text-slate-500">
+              {t.count === 1 ? '1 cot.' : `${t.count} cot.`}
+            </span>
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

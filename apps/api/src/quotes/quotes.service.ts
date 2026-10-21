@@ -5,11 +5,15 @@ import {
   computeLine,
   computeQuoteTotals,
   formatQuoteFolio,
+  LOST_QUOTE_STATUS,
+  mxPeriodStarts,
   QUOTE_STATUS_LABELS,
   REVISABLE_QUOTE_STATUSES,
   SENT_QUOTE_STATUSES,
   STAGE_PROBABILITY,
+  summarizeQuoteResults,
   todayMx,
+  WON_QUOTE_STATUS,
   type CreateActivityInput,
   type CreateQuoteInput,
   type QuoteDraftInput,
@@ -132,6 +136,34 @@ export class QuotesService {
         nextAction: next.get(q.id) ?? null,
       })),
     };
+  }
+
+  async summary(user: AuthUser) {
+    const { yearStart, nextYearStart } = mxPeriodStarts();
+    const quotes = await this.prisma.quote.findMany({
+      where: {
+        deletedAt: null,
+        ...this.visibility(user),
+        status: { in: [WON_QUOTE_STATUS, LOST_QUOTE_STATUS] },
+        closedAt: { gte: yearStart, lt: nextYearStart },
+      },
+      select: {
+        status: true,
+        closedAt: true,
+        versions: {
+          orderBy: { number: 'desc' },
+          take: 1,
+          select: { currency: true, exchangeRate: true, subtotal: true },
+        },
+      },
+    });
+    return summarizeQuoteResults(
+      quotes.flatMap(({ status, closedAt, versions: [v] }) =>
+        v && closedAt
+          ? [{ status, closedAt, currency: v.currency, exchangeRate: Number(v.exchangeRate), subtotal: Number(v.subtotal) }]
+          : [],
+      ),
+    );
   }
 
   async get(id: string, user: AuthUser) {
