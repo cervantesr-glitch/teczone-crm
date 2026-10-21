@@ -1,10 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   CLOSED_STAGES,
+  firstStage,
   formatQuoteFolio,
   STAGE_PROBABILITY,
   stageBelongsTo,
   type ChangeStageInput,
+  type CreateOpportunityInput,
   type CreateActivityInput,
   type OpportunityListQuery,
   type UpdateOpportunityInput,
@@ -103,6 +105,49 @@ export class OpportunitiesService {
       activities,
       nextAction: next ? { id: next.id, subject: next.subject, dueAt: next.dueAt } : null,
     };
+  }
+
+  async create(input: CreateOpportunityInput, user: AuthUser) {
+    const account = await this.prisma.account.findFirst({ where: { id: input.accountId, deletedAt: null } });
+    if (!account) throw new NotFoundException('Cuenta no encontrada');
+    const manager = hasAnyRole(user, ['ADMIN', 'GERENTE_COMERCIAL']);
+    const ownerId = input.ownerId ?? user.id;
+    if (ownerId !== user.id) {
+      if (!manager) throw new ForbiddenException('Solo un gerente asigna la oportunidad a otro responsable');
+    }
+    const owner = await this.prisma.user.findUnique({ where: { id: ownerId }, include: { roles: true } });
+    if (!owner?.active || !owner.roles.some((r) => OPPORTUNITY_WRITE_ROLES.includes(r.role))) {
+      throw new BadRequestException('El responsable debe ser un ejecutivo o gerente activo');
+    }
+    if (input.primaryContactId) {
+      const contact = await this.prisma.contact.findFirst({
+        where: { id: input.primaryContactId, accountId: account.id, deletedAt: null },
+      });
+      if (!contact) throw new BadRequestException('El contacto no pertenece a la cuenta');
+    }
+    const stage = firstStage(input.pipeline);
+    const opp = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.opportunity.create({
+        data: {
+          name: input.name,
+          pipeline: input.pipeline,
+          stage,
+          probability: STAGE_PROBABILITY[stage],
+          amount: input.amount ?? null,
+          currency: input.currency ?? (input.amount ? 'MXN' : null),
+          expectedCloseDate: input.expectedCloseDate ?? null,
+          accountId: account.id,
+          primaryContactId: input.primaryContactId ?? null,
+          ownerId,
+          createdById: user.id,
+        },
+      });
+      await tx.opportunityStageHistory.create({
+        data: { opportunityId: created.id, toStage: stage, userId: user.id, comment: 'Creada desde la cuenta' },
+      });
+      return created;
+    });
+    return this.get(opp.id, user);
   }
 
   async update(id: string, input: UpdateOpportunityInput, user: AuthUser) {

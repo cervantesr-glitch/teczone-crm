@@ -1,10 +1,12 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import {
   changeStageSchema,
+  createOpportunitySchema,
   createActivitySchema,
   opportunityListQuerySchema,
   updateOpportunitySchema,
   type ChangeStageInput,
+  type CreateOpportunityInput,
   type CreateActivityInput,
   type OpportunityListQuery,
   type UpdateOpportunityInput,
@@ -28,6 +30,12 @@ export class OpportunitiesController {
   @Get(':id')
   get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.opportunities.get(id, user);
+  }
+
+  @Roles(...OPPORTUNITY_WRITE_ROLES)
+  @Post()
+  create(@Body(new ZodValidationPipe(createOpportunitySchema)) body: CreateOpportunityInput, @CurrentUser() user: AuthUser) {
+    return this.opportunities.create(body, user);
   }
 
   @Roles(...OPPORTUNITY_WRITE_ROLES)
