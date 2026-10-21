@@ -10,7 +10,7 @@ import { StageBadge } from '@/components/stage-badge';
 import { Button, Card, ErrorText, Field, Input, LoadingPage, Modal, Select, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import type { OpportunityDetail } from '@/lib/crm';
-import { formatDate, formatDateTime, formatMoney } from '@/lib/format';
+import { formatDate, formatDateTime, formatDay, formatMoney } from '@/lib/format';
 import { canEditOpportunity, isManager } from '@/lib/permissions';
 import { useSession } from '@/lib/session';
 
@@ -301,7 +301,7 @@ export default function OpportunityPage() {
             <dl className="space-y-2 text-sm">
               <Item label="Monto">{formatMoney(opp.amount, opp.currency)}</Item>
               <Item label="Probabilidad">{opp.probability === null ? '—' : `${opp.probability}%`}</Item>
-              <Item label="Cierre estimado">{formatDate(opp.expectedCloseDate)}</Item>
+              <Item label="Cierre estimado">{formatDay(opp.expectedCloseDate)}</Item>
               <Item label="Contacto principal">{opp.primaryContact?.name ?? '—'}</Item>
               {opp.sourceLeads.length > 0 && (
                 <Item label="Lead de origen">

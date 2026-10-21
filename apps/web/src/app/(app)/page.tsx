@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/lead-badges';
 import { ButtonLink, Card, EmptyState, ErrorText, StatCard } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import type { OpportunityListItem } from '@/lib/crm';
-import { formatDate, formatDateTime, formatMoney } from '@/lib/format';
+import { formatDateTime, formatDay, formatMoney } from '@/lib/format';
 import type { LeadListItem } from '@/lib/leads';
 import { canApproveQuotes, canSeeLeads, canSeeOpportunities, canSeeQuotes, canWriteLeads } from '@/lib/permissions';
 import { useSession } from '@/lib/session';
@@ -179,7 +179,7 @@ export default function HomePage() {
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="text-sm font-medium tabular-nums">{formatMoney(o.amount, o.currency)}</div>
-                      <div className="text-xs text-slate-500">{formatDate(o.expectedCloseDate)}</div>
+                      <div className="text-xs text-slate-500">{formatDay(o.expectedCloseDate)}</div>
                     </div>
                   </li>
                 ))}

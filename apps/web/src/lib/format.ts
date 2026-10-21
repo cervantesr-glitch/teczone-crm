@@ -1,4 +1,6 @@
-const TZ = 'America/Mexico_City';
+import { formatDayOnly, MX_TIME_ZONE } from '@teczone/shared';
+
+const TZ = MX_TIME_ZONE;
 
 export function formatDateTime(value: string | Date | null | undefined) {
   if (!value) return '—';
@@ -7,9 +9,16 @@ export function formatDateTime(value: string | Date | null | undefined) {
   );
 }
 
+// Fecha de un instante (envío, cierre real, recepción) según el día en Ciudad de México.
 export function formatDate(value: string | Date | null | undefined) {
   if (!value) return '—';
   return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeZone: TZ }).format(new Date(value));
+}
+
+// Fecha de solo día (vigencia, cierre estimado, compra estimada): conserva el día guardado.
+export function formatDay(value: string | Date | null | undefined) {
+  if (!value) return '—';
+  return formatDayOnly(value);
 }
 
 export function formatMoney(value: string | number | null | undefined, currency: string | null | undefined) {

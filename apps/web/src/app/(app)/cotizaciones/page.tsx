@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { QuoteStatusBadge } from '@/components/quote-badge';
 import { EmptyState, ErrorText, Input, LoadingTable, PageHeader, Select, Toolbar, MobileCard } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
-import { formatDate, formatDateTime, formatMoney } from '@/lib/format';
+import { formatDateTime, formatDay, formatMoney } from '@/lib/format';
 import { canApproveQuotes } from '@/lib/permissions';
 import type { QuoteListItem } from '@/lib/quotes';
 import { useSession } from '@/lib/session';
@@ -114,7 +114,7 @@ export default function QuotesPage() {
                         {c.folio} v{c.version.number}
                       </span>
                       <span className="font-medium text-slate-700">{formatMoney(c.version.total, c.version.currency)}</span>
-                      <span>Vigencia {formatDate(c.version.validUntil)}</span>
+                      <span>Vigencia {formatDay(c.version.validUntil)}</span>
                     </>
                   }
                 />
@@ -152,7 +152,7 @@ export default function QuotesPage() {
                         <div className="text-xs text-slate-500">Margen {Number(c.version.marginPct).toFixed(1)}%</div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right">{formatMoney(c.version.total, c.version.currency)}</td>
-                      <td className="px-4 py-3">{formatDate(c.version.validUntil)}</td>
+                      <td className="px-4 py-3">{formatDay(c.version.validUntil)}</td>
                       <td className="px-4 py-3">{c.owner.name}</td>
                       <td className="px-4 py-3">
                         {c.nextAction ? (

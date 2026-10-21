@@ -6,3 +6,4 @@ export * from './opportunities';
 export * from './auth';
 export * from './quotes';
 export * from './amount-words';
+export * from './dates';

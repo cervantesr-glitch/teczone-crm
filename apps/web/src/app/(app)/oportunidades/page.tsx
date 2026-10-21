@@ -8,7 +8,7 @@ import { StageBadge } from '@/components/stage-badge';
 import { EmptyState, ErrorText, Input, LoadingTable, PageHeader, Select, Toolbar, MobileCard } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import type { OpportunityListItem } from '@/lib/crm';
-import { formatDate, formatDateTime, formatMoney } from '@/lib/format';
+import { formatDateTime, formatDay, formatMoney } from '@/lib/format';
 
 interface ListResponse {
   total: number;
@@ -109,7 +109,7 @@ export default function OpportunitiesPage() {
                   meta={
                     <>
                       <span className="font-medium text-slate-700">{formatMoney(o.amount, o.currency)}</span>
-                      <span>Cierre {formatDate(o.expectedCloseDate)}</span>
+                      <span>Cierre {formatDay(o.expectedCloseDate)}</span>
                       <span>{o.owner.name}</span>
                     </>
                   }
@@ -150,7 +150,7 @@ export default function OpportunitiesPage() {
                         {o.probability !== null && <div className="text-xs text-slate-500">{o.probability}%</div>}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right">{formatMoney(o.amount, o.currency)}</td>
-                      <td className="px-4 py-3">{formatDate(o.expectedCloseDate)}</td>
+                      <td className="px-4 py-3">{formatDay(o.expectedCloseDate)}</td>
                       <td className="px-4 py-3">{o.owner.name}</td>
                       <td className="px-4 py-3">
                         {o.nextAction ? (
