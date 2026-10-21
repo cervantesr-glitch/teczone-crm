@@ -135,6 +135,27 @@ export function computeQuoteTotals(lines: QuoteLineInput[], taxRate: number) {
   return { subtotal, tax, total: round2(subtotal + tax), totalCost, marginPct };
 }
 
+// ---------- Precio a partir del margen ----------
+// La partida se captura con costo y margen; el precio de venta se calcula aquí. Se usa la
+// misma definición de margen que se valida contra el mínimo (sobre la venta), así que el
+// margen capturado es el que se muestra y se autoriza: precio = costo / (1 − margen%).
+// Si se decidiera calcular sobre el costo (markup), basta cambiar estas dos funciones.
+
+// Margen máximo capturable: con 100% o más el precio sería infinito o negativo.
+export const MAX_LINE_MARGIN_PCT = 99.99;
+
+// Redondea hacia arriba al centavo para que el margen real nunca quede por debajo del capturado.
+export function priceFromMargin(unitCost: number, marginPct: number) {
+  if (!(marginPct < 100)) return NaN;
+  const cents = (unitCost / (1 - marginPct / 100)) * 100;
+  // La tolerancia evita subir un centavo por ruido de punto flotante (p. ej. 40000.000000001).
+  return Math.ceil(cents - 1e-6) / 100;
+}
+
+export function marginFromPrice(unitCost: number, unitPrice: number) {
+  return unitPrice > 0 ? round2(((unitPrice - unitCost) / unitPrice) * 100) : 0;
+}
+
 // ---------- Esquemas ----------
 
 const text = (max = 191) =>

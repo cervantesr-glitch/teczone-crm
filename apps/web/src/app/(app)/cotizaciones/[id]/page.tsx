@@ -1,6 +1,14 @@
 'use client';
 
-import { computeLine, computeQuoteTotals, QUOTE_STATUS_LABELS, REVISABLE_QUOTE_STATUSES } from '@teczone/shared';
+import {
+  computeLine,
+  computeQuoteTotals,
+  MAX_LINE_MARGIN_PCT,
+  marginFromPrice,
+  priceFromMargin,
+  QUOTE_STATUS_LABELS,
+  REVISABLE_QUOTE_STATUSES,
+} from '@teczone/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -23,6 +31,8 @@ interface Line {
   description: string;
   quantity: string;
   unitCost: string;
+  // Se captura el margen; el precio se calcula a partir del costo. Solo sin costo se captura el precio.
+  marginPct: string;
   unitPrice: string;
   discountPct: string;
 }
@@ -53,6 +63,7 @@ const toDraft = (q: QuoteDetail, v: QuoteVersion): Draft => ({
     description: i.description,
     quantity: String(Number(i.quantity)),
     unitCost: String(Number(i.unitCost)),
+    marginPct: String(marginFromPrice(Number(i.unitCost), Number(i.unitPrice))),
     unitPrice: String(Number(i.unitPrice)),
     discountPct: String(Number(i.discountPct)),
   })),
@@ -64,6 +75,23 @@ const numericLine = (l: Line) => ({
   unitPrice: Number(l.unitPrice) || 0,
   discountPct: Number(l.discountPct) || 0,
 });
+
+const hasCost = (l: Line) => Number(l.unitCost) > 0;
+const invalidMargin = (l: Line) => hasCost(l) && !(Number(l.marginPct) <= MAX_LINE_MARGIN_PCT);
+
+// Aplica un cambio a la partida y recalcula el precio cuando cambia el costo o el margen.
+function patchLine(l: Line, patch: Partial<Line>): Line {
+  const next = { ...l, ...patch };
+  if (!('unitCost' in patch) && !('marginPct' in patch)) return next;
+  const cost = Number(next.unitCost) || 0;
+  if (cost <= 0) return next;
+  // Al pasar de sin costo a con costo, conserva el precio capturado y deriva el margen.
+  if ('unitCost' in patch && !hasCost(l)) {
+    return { ...next, marginPct: String(marginFromPrice(cost, Number(next.unitPrice) || 0)) };
+  }
+  const price = priceFromMargin(cost, Number(next.marginPct) || 0);
+  return Number.isFinite(price) ? { ...next, unitPrice: String(price) } : next;
+}
 
 // Cotización con versiones, margen, autorización y seguimiento (FR-03 a FR-11).
 export default function QuotePage() {
@@ -114,6 +142,10 @@ export default function QuotePage() {
 
   async function saveDraft() {
     if (!draft) return false;
+    if (draft.lines.some(invalidMargin)) {
+      setError('El margen de cada partida debe ser menor a 100%');
+      return false;
+    }
     setBusy(true);
     try {
       const saved = await api<QuoteDetail>(`/quotes/${id}/draft`, {
@@ -521,7 +553,7 @@ function Editor({
   const rate = Number(draft.exchangeRate) || 1;
 
   const setLine = (key: string, patch: Partial<Line>) =>
-    onChange({ ...draft, lines: draft.lines.map((l) => (l.key === key ? { ...l, ...patch } : l)) });
+    onChange({ ...draft, lines: draft.lines.map((l) => (l.key === key ? patchLine(l, patch) : l)) });
 
   // Convierte el precio del catálogo a la moneda de la cotización con el TC de esta versión.
   function convert(amount: string, from: 'MXN' | 'USD') {
@@ -530,7 +562,10 @@ function Editor({
     return Math.round((from === 'USD' ? n * rate : n / rate) * 100) / 100;
   }
 
+  // El margen inicial sale del precio de lista del catálogo.
   function addProduct(p: Product) {
+    const unitCost = convert(p.unitCost, p.currency);
+    const unitPrice = convert(p.listPrice, p.currency);
     onChange({
       ...draft,
       lines: [
@@ -541,8 +576,9 @@ function Editor({
           sku: p.sku,
           description: p.name,
           quantity: '1',
-          unitCost: String(convert(p.unitCost, p.currency)),
-          unitPrice: String(convert(p.listPrice, p.currency)),
+          unitCost: String(unitCost),
+          marginPct: String(marginFromPrice(unitCost, unitPrice)),
+          unitPrice: String(unitPrice),
           discountPct: '0',
         },
       ],
@@ -555,7 +591,17 @@ function Editor({
       ...draft,
       lines: [
         ...draft.lines,
-        { key: newKey(), productId: null, sku: null, description: '', quantity: '1', unitCost: '0', unitPrice: '0', discountPct: '0' },
+        {
+          key: newKey(),
+          productId: null,
+          sku: null,
+          description: '',
+          quantity: '1',
+          unitCost: '0',
+          marginPct: String(Number(version.minMarginPct)),
+          unitPrice: '0',
+          discountPct: '0',
+        },
       ],
     });
   }
@@ -590,16 +636,19 @@ function Editor({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] text-left text-sm">
+        <table className="w-full min-w-[960px] text-left text-sm">
           <thead className="border-b border-slate-200 text-xs uppercase text-slate-500">
             <tr>
               <th className="px-1 py-2">Descripción</th>
               <th className="w-20 px-1 py-2">Cant.</th>
               <th className="w-28 px-1 py-2">Costo unit.</th>
-              <th className="w-28 px-1 py-2">Precio unit.</th>
+              <th className="w-24 px-1 py-2">Margen %</th>
+              <th className="w-28 px-1 py-2 text-right">Precio unit.</th>
               <th className="w-20 px-1 py-2">Desc. %</th>
               <th className="w-28 px-1 py-2 text-right">Importe</th>
-              <th className="w-20 px-1 py-2 text-right">Margen</th>
+              <th className="w-24 px-1 py-2 text-right" title="Margen después del descuento">
+                Margen real
+              </th>
               <th className="w-8" />
             </tr>
           </thead>
@@ -620,7 +669,36 @@ function Editor({
                     <Input type="number" min={0} step="0.01" value={l.unitCost} onChange={(e) => setLine(l.key, { unitCost: e.target.value })} aria-label="Costo unitario" />
                   </td>
                   <td className={cell}>
-                    <Input type="number" min={0} step="0.01" value={l.unitPrice} onChange={(e) => setLine(l.key, { unitPrice: e.target.value })} aria-label="Precio unitario" />
+                    {hasCost(l) ? (
+                      <Input
+                        type="number"
+                        max={MAX_LINE_MARGIN_PCT}
+                        step="0.01"
+                        value={l.marginPct}
+                        onChange={(e) => setLine(l.key, { marginPct: e.target.value })}
+                        aria-label="Margen"
+                        aria-invalid={invalidMargin(l)}
+                        className={
+                          invalidMargin(l)
+                            ? '!border-red-400 text-red-700'
+                            : Number(l.marginPct) < Number(version.minMarginPct)
+                              ? '!border-amber-400 text-amber-800'
+                              : undefined
+                        }
+                      />
+                    ) : (
+                      <div className="pt-2 text-center text-slate-400" title="Sin costo: captura el precio">
+                        —
+                      </div>
+                    )}
+                    {invalidMargin(l) && <div className="mt-1 text-xs text-red-600">Menor a 100%</div>}
+                  </td>
+                  <td className={cell}>
+                    {hasCost(l) ? (
+                      <div className="pt-2 text-right tabular-nums">{formatMoney(Number(l.unitPrice) || 0, draft.currency)}</div>
+                    ) : (
+                      <Input type="number" min={0} step="0.01" value={l.unitPrice} onChange={(e) => setLine(l.key, { unitPrice: e.target.value })} aria-label="Precio unitario" />
+                    )}
                   </td>
                   <td className={cell}>
                     <Input type="number" min={0} max={100} value={l.discountPct} onChange={(e) => setLine(l.key, { discountPct: e.target.value })} aria-label="Descuento" />
