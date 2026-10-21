@@ -9,7 +9,7 @@ import { StageBadge } from '@/components/stage-badge';
 import { Badge, Button, Card, ErrorText, Field, Input, LoadingPage, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import type { AccountDetail } from '@/lib/crm';
-import { formatDate, formatMoney } from '@/lib/format';
+import { formatDay, formatMoney } from '@/lib/format';
 import { canSeeOpportunities, canWriteAccounts } from '@/lib/permissions';
 import { useSession } from '@/lib/session';
 
@@ -134,7 +134,7 @@ export default function AccountPage() {
                           <span className="font-mono text-xs text-slate-500">{o.folio}</span> {o.name}
                         </Link>
                         <div className="text-slate-500">
-                          {o.owner.name} · cierre {formatDate(o.expectedCloseDate)}
+                          {o.owner.name} · cierre {formatDay(o.expectedCloseDate)}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">

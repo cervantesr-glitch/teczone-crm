@@ -18,7 +18,7 @@ import { SlaBadge, StatusBadge } from '@/components/lead-badges';
 import { formToPayload, LeadForm, leadToForm } from '@/components/lead-form';
 import { Button, Card, ErrorText, LoadingPage, Select, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
-import { formatDate, formatDateTime, formatMoney } from '@/lib/format';
+import { formatDateTime, formatDay, formatMoney } from '@/lib/format';
 import { CATEGORY_LABELS, type LeadDetail } from '@/lib/leads';
 import { canAssignLeads, canWriteLeads, hasFullLeadAccess } from '@/lib/permissions';
 import { useSession } from '@/lib/session';
@@ -229,7 +229,7 @@ function LeadData({ lead, onEdit }: { lead: LeadDetail; onEdit?: () => void }) {
         <Row label="Tamaño" value={lead.companySize} />
         <Row label="Ubicación" value={[lead.city, lead.state].filter(Boolean).join(', ')} />
         <Row label="Presupuesto estimado" value={lead.estimatedBudget && formatMoney(lead.estimatedBudget, lead.currency)} />
-        <Row label="Fecha estimada de compra" value={lead.expectedPurchaseDate && formatDate(lead.expectedPurchaseDate)} />
+        <Row label="Fecha estimada de compra" value={lead.expectedPurchaseDate && formatDay(lead.expectedPurchaseDate)} />
       </dl>
       {lead.need && (
         <div className="mt-3">

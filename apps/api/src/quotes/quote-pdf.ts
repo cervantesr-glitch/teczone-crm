@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import PDFDocument from 'pdfkit';
-import { amountInWords, type CompanySettings } from '@teczone/shared';
+import { amountInWords, formatDayOnly, formatInstantDate, type CompanySettings } from '@teczone/shared';
 
 // Datos ya resueltos de una versión para imprimir (FR-06). Sin costos ni margen.
 export interface QuotePdfData {
@@ -30,8 +30,6 @@ const LIGHT = '#eef2f9';
 
 const money = (n: number, currency: string) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(n);
-const date = (d: Date) =>
-  new Intl.DateTimeFormat('es-MX', { dateStyle: 'long', timeZone: 'UTC' }).format(d);
 
 export function renderQuotePdf(data: QuotePdfData): Promise<Buffer> {
   const doc = new PDFDocument({ size: 'LETTER', margin: 50, bufferPages: true, info: { Title: `Cotización ${data.folio}` } });
@@ -56,8 +54,8 @@ export function renderQuotePdf(data: QuotePdfData): Promise<Buffer> {
   doc.rect(left, y, width, 46).fill(NAVY);
   doc.fillColor('white').font('Helvetica-Bold').fontSize(16).text('COTIZACIÓN', left + 12, y + 9);
   doc.font('Helvetica').fontSize(10).text(data.folio, left + 12, y + 29);
-  doc.fontSize(9).text(`Fecha: ${date(data.date)}`, left, y + 10, { width: width - 12, align: 'right' });
-  doc.text(`Vigente hasta: ${date(data.validUntil)}`, left, y + 25, { width: width - 12, align: 'right' });
+  doc.fontSize(9).text(`Fecha: ${formatInstantDate(data.date, 'long')}`, left, y + 10, { width: width - 12, align: 'right' });
+  doc.text(`Vigente hasta: ${formatDayOnly(data.validUntil, 'long')}`, left, y + 25, { width: width - 12, align: 'right' });
 
   // ---------- Cliente y ejecutivo ----------
   y += 60;

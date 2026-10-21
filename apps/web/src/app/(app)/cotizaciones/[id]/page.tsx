@@ -8,7 +8,7 @@ import { Activities } from '@/components/activities';
 import { MarginBadge, QuoteStatusBadge } from '@/components/quote-badge';
 import { Button, Card, ErrorText, Field, Input, LoadingPage, Modal, Select, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
-import { formatDate, formatDateTime, formatMoney, toLocalInput } from '@/lib/format';
+import { formatDate, formatDateTime, formatDay, formatMoney, toLocalInput } from '@/lib/format';
 import { canApproveQuotes, canEditOpportunity } from '@/lib/permissions';
 import type { Product, QuoteDetail, QuoteVersion } from '@/lib/quotes';
 import { useSession } from '@/lib/session';
@@ -418,7 +418,7 @@ function VersionView({ quote, version }: { quote: QuoteDetail; version: QuoteVer
     <Card title={`Versión ${version.number}`}>
       <div className="mb-3 grid gap-2 text-sm sm:grid-cols-4">
         <Info label="Contacto">{quote.contact?.name ?? '—'}</Info>
-        <Info label="Vigencia">{formatDate(version.validUntil)}</Info>
+        <Info label="Vigencia">{formatDay(version.validUntil)}</Info>
         <Info label="Moneda / TC">
           {version.currency} · {Number(version.exchangeRate).toFixed(2)}
         </Info>

@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   ACTIVE_QUOTE_STATUSES,
+  addDays,
   computeLine,
   computeQuoteTotals,
   formatQuoteFolio,
@@ -8,6 +9,7 @@ import {
   REVISABLE_QUOTE_STATUSES,
   SENT_QUOTE_STATUSES,
   STAGE_PROBABILITY,
+  todayMx,
   type CreateActivityInput,
   type CreateQuoteInput,
   type QuoteDraftInput,
@@ -28,14 +30,6 @@ import { SettingsService } from '../settings/settings.service';
 type Tx = Prisma.TransactionClient;
 
 const userRef = { select: { id: true, name: true } } as const;
-
-// Fecha de hoy en Ciudad de México, como fecha sin hora (columnas @db.Date).
-function todayMx() {
-  const d = new Date(Date.now() - 6 * 3600 * 1000);
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-}
-
-const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 86_400_000);
 
 const CHANNEL_ACTIVITY = { CORREO: 'CORREO', WHATSAPP: 'WHATSAPP', REUNION: 'REUNION', OTRO: 'NOTA' } as const;
 
