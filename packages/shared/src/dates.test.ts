@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDayOnly, formatInstantDate, todayMx } from './dates';
+import { formatDayOnly, formatInstantDate, mxPeriodStarts, todayMx } from './dates';
 
 describe('fechas de solo día', () => {
   // Caso de COT-000001: vigencia guardada como @db.Date del 5 de noviembre.
@@ -33,5 +33,16 @@ describe('todayMx', () => {
 
   it('después de medianoche en México ya es el día siguiente', () => {
     expect(todayMx(new Date('2026-10-21T06:30:00.000Z'))).toEqual(new Date('2026-10-21T00:00:00.000Z'));
+  });
+});
+
+describe('mxPeriodStarts', () => {
+  it('usa el mes de Ciudad de México y devuelve la medianoche local como instante', () => {
+    // 1 nov 2026 a las 03:00 UTC sigue siendo 31 oct en México (UTC-6).
+    const p = mxPeriodStarts(new Date('2026-11-01T03:00:00.000Z'));
+    expect(p).toMatchObject({ year: 2026, month: 10 });
+    expect(p.yearStart).toEqual(new Date('2026-01-01T06:00:00.000Z'));
+    expect(p.monthStart).toEqual(new Date('2026-10-01T06:00:00.000Z'));
+    expect(p.nextYearStart).toEqual(new Date('2027-01-01T06:00:00.000Z'));
   });
 });

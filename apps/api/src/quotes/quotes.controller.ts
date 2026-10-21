@@ -32,6 +32,12 @@ export class QuotesController {
     return this.quotes.list(query, user);
   }
 
+  // Ganadas y perdidas del año y mes en curso para el tablero de inicio (FR-10).
+  @Get('summary')
+  summary(@CurrentUser() user: AuthUser) {
+    return this.quotes.summary(user);
+  }
+
   @Get(':id')
   get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.quotes.get(id, user);

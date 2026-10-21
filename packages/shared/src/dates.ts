@@ -34,3 +34,35 @@ export function todayMx(now: Date = new Date()) {
 export function addDays(date: Date, days: number) {
   return new Date(date.getTime() + days * 86_400_000);
 }
+
+// Inicio del año y del mes en curso en Ciudad de México, como instantes, para filtrar fechas de cierre real.
+export function mxPeriodStarts(now: Date = new Date()) {
+  const [year, month] = todayMx(now).toISOString().slice(0, 7).split('-').map(Number) as [number, number];
+  return {
+    year,
+    month,
+    yearStart: mxMidnight(year, 1),
+    monthStart: mxMidnight(year, month),
+    nextYearStart: mxMidnight(year + 1, 1),
+  };
+}
+
+// Medianoche del día 1 del mes en Ciudad de México; respeta el desfase vigente en esa fecha.
+function mxMidnight(year: number, month: number) {
+  const guess = Date.UTC(year, month - 1, 1);
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: MX_TIME_ZONE,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+    })
+      .formatToParts(new Date(guess))
+      .map((x) => [x.type, Number(x.value)]),
+  );
+  const offset = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - guess;
+  return new Date(guess - offset);
+}
