@@ -4,7 +4,6 @@ import {
   addDays,
   computeLine,
   computeQuoteTotals,
-  costMarginPct,
   formatQuoteFolio,
   LOST_QUOTE_STATUS,
   mxPeriodStarts,
@@ -114,7 +113,7 @@ export class QuotesService {
           versions: {
             orderBy: { number: 'desc' },
             take: 1,
-            select: { number: true, currency: true, subtotal: true, total: true, totalCost: true, marginPct: true, validUntil: true },
+            select: { number: true, currency: true, total: true, marginPct: true, validUntil: true },
           },
         },
         orderBy: { updatedAt: 'desc' },
@@ -273,20 +272,20 @@ export class QuotesService {
     return this.get(id, user);
   }
 
-  // Margen sobre costo bajo el mínimo pasa a autorización; si no, queda autorizada (FR-05).
+  // Margen bajo el mínimo pasa a autorización; si no, queda autorizada (FR-05).
   async submit(id: string, user: AuthUser) {
     const quote = await this.editable(id, user);
     this.assertStatus(quote, ['BORRADOR']);
     const version = await this.currentVersion(quote, true);
     if (!version.items.length) throw new BadRequestException('Agrega al menos una partida');
     if (version.validUntil < todayMx()) throw new BadRequestException('La vigencia ya pasó; actualízala');
-    const margin = costMarginPct(Number(version.subtotal), Number(version.totalCost));
+    const margin = Number(version.marginPct);
     const min = Number(version.minMarginPct);
     const needsApproval = margin < min;
     await this.transition(quote, needsApproval ? 'PENDIENTE_APROBACION' : 'AUTORIZADA', user, {
       comment: needsApproval
-        ? `Margen sobre costo ${margin}% por debajo del mínimo de ${min}%`
-        : `Margen sobre costo ${margin}% dentro del mínimo de ${min}%`,
+        ? `Margen ${margin}% por debajo del mínimo de ${min}%`
+        : `Margen ${margin}% dentro del mínimo de ${min}%`,
     });
     return this.get(id, user);
   }

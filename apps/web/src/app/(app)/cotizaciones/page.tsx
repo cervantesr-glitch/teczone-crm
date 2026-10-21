@@ -1,6 +1,6 @@
 'use client';
 
-import { costMarginPct, QUOTE_STATUS_LABELS, QUOTE_STATUSES } from '@teczone/shared';
+import { QUOTE_STATUS_LABELS, QUOTE_STATUSES } from '@teczone/shared';
 import { BadgeCheck, FileText, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
@@ -149,7 +149,7 @@ export default function QuotesPage() {
                       </td>
                       <td className="space-y-1 px-4 py-3">
                         <QuoteStatusBadge status={c.status} />
-                        <div className="text-xs text-slate-500">Margen {costMarginPct(Number(c.version.subtotal), Number(c.version.totalCost)).toFixed(1)}%</div>
+                        <div className="text-xs text-slate-500">Margen {Number(c.version.marginPct).toFixed(1)}%</div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right">{formatMoney(c.version.total, c.version.currency)}</td>
                       <td className="px-4 py-3">{formatDay(c.version.validUntil)}</td>
