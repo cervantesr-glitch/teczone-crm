@@ -1,13 +1,13 @@
-// Arranque de producción en Hostinger (app web Node.js): la web en el puerto público y la
-// API interna en 127.0.0.1:4000 como proceso hijo.
-const { spawn, spawnSync } = require('node:child_process');
-const net = require('node:net');
+// Arranque de producción en Hostinger (app web Node.js). LiteSpeed solo admite un listen()
+// por proceso, así que un único servidor HTTP atiende /api/* con NestJS y el resto con Next.js,
+// sin puertos internos ni proxy.
+const { spawnSync } = require('node:child_process');
+const { createServer } = require('node:http');
 const { join } = require('node:path');
 
 process.env.NODE_ENV = 'production';
-process.env.API_HOST ??= '127.0.0.1';
-process.env.API_PORT ??= '4000';
 process.env.COOKIE_SECURE ??= 'true';
+process.env.PORT ??= '3000';
 
 const db = join(__dirname, 'packages', 'db');
 const bin = (pkg, file) => join(require.resolve(`${pkg}/package.json`, { paths: [db] }), '..', file);
@@ -22,29 +22,39 @@ function run(args, label) {
 run([bin('prisma', 'build/index.js'), 'migrate', 'deploy'], 'migraciones');
 if (process.env.SEED_ADMIN_PASSWORD) run([bin('tsx', 'dist/cli.mjs'), 'prisma/seed.ts'], 'datos iniciales');
 
-// Hostinger corre la app con LiteSpeed, que toma el primer listen() del proceso como el
-// puerto público e ignora los demás; por eso la API va en su propio proceso. Hostinger
-// puede levantar varias instancias: solo una arranca la API y las demás la reusan.
-let api = null;
-function apiListening() {
-  return new Promise((resolve) => {
-    const socket = net.connect(Number(process.env.API_PORT), process.env.API_HOST);
-    socket.once('connect', () => { socket.destroy(); resolve(true); });
-    socket.once('error', () => resolve(false));
+async function main() {
+  // API: NestJS sin listen() propio; responde dentro del mismo servidor HTTP.
+  const apiDir = join(__dirname, 'apps', 'api');
+  const fromApi = (m) => require(require.resolve(m, { paths: [apiDir] }));
+  fromApi('reflect-metadata');
+  const { NestFactory } = fromApi('@nestjs/core');
+  const { AppModule } = require('./apps/api/dist/app.module.js');
+  const { configureApp } = require('./apps/api/dist/app.setup.js');
+  const api = await NestFactory.create(AppModule);
+  configureApp(api);
+  await api.init();
+  const handleApi = api.getHttpAdapter().getInstance();
+
+  // Web: Next.js del servidor autónomo, con la configuración que dejó el build.
+  const webDir = join(__dirname, 'apps', 'web', '.next', 'standalone', 'apps', 'web');
+  const { config } = require('./apps/web/.next/required-server-files.json');
+  process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify(config);
+  process.chdir(webDir);
+  const nextMod = require(require.resolve('next', { paths: [webDir] }));
+  const next = nextMod.default ?? nextMod;
+  const web = next({ dir: webDir, dev: false, conf: config, hostname: '0.0.0.0', port: Number(process.env.PORT) });
+  await web.prepare();
+  const handleWeb = web.getRequestHandler();
+
+  createServer((req, res) => {
+    if (req.url === '/api' || req.url.startsWith('/api/')) handleApi(req, res);
+    else handleWeb(req, res);
+  }).listen(Number(process.env.PORT), '0.0.0.0', () => {
+    console.log(`CRM listo en el puerto ${process.env.PORT} (web y API en el mismo servidor)`);
   });
 }
-async function ensureApi() {
-  if (!api && !(await apiListening())) {
-    api = spawn(process.execPath, [join(__dirname, 'apps', 'api', 'dist', 'main.js')], { stdio: 'inherit', env: process.env });
-    api.once('exit', () => { api = null; });
-  }
-  setTimeout(ensureApi, 5000).unref();
-}
-process.once('exit', () => api?.kill());
-process.once('SIGTERM', () => process.exit(0));
-ensureApi();
 
-const web = join(__dirname, 'apps', 'web', '.next', 'standalone', 'apps', 'web', 'server.js');
-process.env.PORT ??= '3000';
-process.env.HOSTNAME = '0.0.0.0';
-require(web);
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
