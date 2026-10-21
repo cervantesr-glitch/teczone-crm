@@ -298,7 +298,7 @@ function QuoteSettingsCard() {
         Aplican a cotizaciones y versiones nuevas; las existentes conservan los valores con que se crearon.
       </p>
       <div className="grid gap-3 sm:grid-cols-4">
-        <Field label="Margen mínimo (%)" hint="Debajo de este margen se pide autorización">
+        <Field label="Margen mínimo sobre costo (%)" hint="Debajo de este margen se pide autorización">
           <Input type="number" min={0} max={100} step="0.5" value={form.minMarginPct} onChange={num('minMarginPct')} />
         </Field>
         <Field label="Vigencia (días)">

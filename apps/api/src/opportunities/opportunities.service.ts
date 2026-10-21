@@ -87,7 +87,7 @@ export class OpportunitiesService {
           where: { deletedAt: null },
           orderBy: { createdAt: 'desc' },
           include: {
-            versions: { orderBy: { number: 'desc' }, take: 1, select: { number: true, currency: true, total: true, marginPct: true } },
+            versions: { orderBy: { number: 'desc' }, take: 1, select: { number: true, currency: true, subtotal: true, total: true, totalCost: true, marginPct: true } },
           },
         },
       },

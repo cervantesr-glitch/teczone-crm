@@ -162,6 +162,25 @@ describe('Cotizaciones (e2e)', () => {
       expect(ok.body.versions[0].approvedBy.name).toBe('Gerente');
       expect(ok.body.statusHistory[0].comment).toBe('Cliente estratégico');
     });
+
+    it('compara el mínimo contra el margen sobre costo', async () => {
+      // Costo 1,000 y precio 1,150: 15% sobre costo (13.04% sobre venta) alcanza el mínimo de 15%.
+      const justEnough = await newQuote();
+      const item = { description: 'Switch', quantity: 1, unitCost: 1000, unitPrice: 1150, discountPct: 0 };
+      await api().put(`/api/quotes/${justEnough}/draft`).set('Cookie', seller).send(draft([item])).expect(200);
+      const ok = await api().post(`/api/quotes/${justEnough}/submit`).set('Cookie', seller).expect(200);
+      expect(ok.body.status).toBe('AUTORIZADA');
+      expect(ok.body.statusHistory[0].comment).toBe('Margen sobre costo 15% dentro del mínimo de 15%');
+
+      const short = await newQuote();
+      await api()
+        .put(`/api/quotes/${short}/draft`)
+        .set('Cookie', seller)
+        .send(draft([{ ...item, unitPrice: 1149.9 }]))
+        .expect(200);
+      const pending = await api().post(`/api/quotes/${short}/submit`).set('Cookie', seller).expect(200);
+      expect(pending.body.status).toBe('PENDIENTE_APROBACION');
+    });
   });
 
   describe('envío, versiones y desenlace', () => {
