@@ -38,7 +38,7 @@ Una sola app web Node.js del plan Business, conectada a este repositorio, con la
 | Directorio raíz | `./` |
 | Node.js | 22 |
 | Gestor de paquetes | pnpm |
-| Comando de build | `build:prod` |
+| Comando de build | `build` (el que Hostinger pone por omisión) |
 | Archivo de entrada | `server.js` |
 
 Cada push a `main` vuelve a publicar. La guía completa, con las variables de entorno, está en [docs/deploy-hostinger.md](docs/deploy-hostinger.md).

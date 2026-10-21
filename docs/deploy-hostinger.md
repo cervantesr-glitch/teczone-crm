@@ -37,7 +37,7 @@ Si la contraseña tiene caracteres como `@`, `#`, `/` o `:`, escríbelos codific
 | Node.js | 22 |
 | Directorio raíz | `./` (la raíz del repositorio) |
 | Gestor de paquetes | pnpm |
-| Comando de build | `build:prod` |
+| Comando de build | `build` (el que Hostinger pone por omisión) |
 | Archivo de entrada | `server.js` |
 
 ## 3. Variables de entorno
@@ -77,6 +77,7 @@ No hacen falta `API_URL`, `API_PORT` ni `TEST_DATABASE_URL` en producción.
 ## Problemas frecuentes
 
 - **Falla el build al instalar:** confirma que el gestor sea pnpm y Node 22. El repositorio fija `pnpm@10` en `package.json`.
+- **"This project is configured to use … of pnpm":** viene de un build anterior a este PR. El build actual (`scripts/build-prod.js`) ya no llama a pnpm.
 - **`Falló: migraciones` en los registros:** `DATABASE_URL` está mal escrita o el usuario no tiene permisos sobre la base.
 - **Entras y te regresa al login:** el sitio no está abriendo por `https://` o falta el SSL.
 - **Cambios que no aparecen:** verifica que el push fue a `main` y que el último deploy terminó bien.
