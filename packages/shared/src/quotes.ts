@@ -59,37 +59,6 @@ export interface QuoteSettings {
   terms: string;
 }
 
-// Datos del emisor que aparecen en el PDF (FR-06).
-export interface CompanySettings {
-  name: string;
-  legalName: string;
-  rfc: string;
-  address: string;
-  phone: string;
-  email: string;
-  website: string;
-}
-
-export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
-  name: 'TecZone',
-  legalName: '',
-  rfc: '',
-  address: '',
-  phone: '',
-  email: '',
-  website: '',
-};
-
-export const companySettingsSchema = z.object({
-  name: z.string().trim().min(1, 'Escribe el nombre comercial').max(191),
-  legalName: z.string().trim().max(191),
-  rfc: z.string().trim().toUpperCase().max(13),
-  address: z.string().trim().max(500),
-  phone: z.string().trim().max(60),
-  email: z.string().trim().max(191),
-  website: z.string().trim().max(191),
-});
-
 export const DEFAULT_QUOTE_SETTINGS: QuoteSettings = {
   minMarginPct: 15,
   validityDays: 15,
@@ -194,6 +163,9 @@ export const quoteItemSchema = z.object({
   productId: z.string().uuid().optional().nullable(),
   sku: text(64),
   description: z.string().trim().min(1, 'Describe la partida').max(2000),
+  // Datos internos del proveedor; no se imprimen.
+  supplierSku: text(64),
+  supplierDescription: text(2000),
   quantity: z.number().positive('La cantidad debe ser mayor a cero').max(1e7),
   unitCost: money,
   unitPrice: money,
@@ -201,6 +173,8 @@ export const quoteItemSchema = z.object({
 });
 
 export const quoteDraftSchema = z.object({
+  // Solo gerencia puede cambiar la empresa emisora; el resto cotiza con la asignada.
+  companyId: z.string().uuid().optional(),
   contactId: z.string().uuid().optional().nullable(),
   currency: z.enum(CURRENCIES),
   exchangeRate: z.number().positive('El tipo de cambio debe ser mayor a cero').max(1000),
@@ -212,6 +186,7 @@ export const quoteDraftSchema = z.object({
 
 export const createQuoteSchema = z.object({
   opportunityId: z.string().uuid(),
+  companyId: z.string().uuid().optional(),
 });
 
 export const quoteCommentSchema = z.object({ comment: text(2000) });
@@ -255,6 +230,7 @@ export const quoteListQuerySchema = z.object({
   status: z.enum(QUOTE_STATUSES).optional(),
   opportunityId: z.string().uuid().optional(),
   ownerId: z.string().uuid().optional(),
+  companyId: z.string().uuid().optional(),
   active: z.enum(['true', 'false']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),

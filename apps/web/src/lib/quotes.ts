@@ -1,4 +1,4 @@
-import type { QuoteStatus } from '@teczone/shared';
+import type { CompanyProfile, QuoteStatus } from '@teczone/shared';
 import type { Contact } from './crm';
 import type { Activity, NextAction, Ref } from './leads';
 
@@ -22,6 +22,8 @@ export interface QuoteItem {
   productId: string | null;
   sku: string | null;
   description: string;
+  supplierSku: string | null;
+  supplierDescription: string | null;
   quantity: string;
   unitCost: string;
   unitPrice: string;
@@ -49,6 +51,8 @@ export interface QuoteVersion {
   approvalComment: string | null;
   approvedBy: Ref | null;
   issuedAt: string | null;
+  // Datos de la empresa al enviar esta versión.
+  companySnapshot: CompanyProfile | null;
   createdAt: string;
   createdBy: Ref;
   items: QuoteItem[];
@@ -61,6 +65,7 @@ export interface QuoteListItem {
   currentVersion: number;
   updatedAt: string;
   owner: Ref;
+  company: Ref;
   opportunity: Ref & { account: Ref };
   version: { number: number; currency: 'MXN' | 'USD'; total: string; marginPct: string; validUntil: string };
   nextAction: NextAction | null;
@@ -71,6 +76,8 @@ export interface QuoteDetail {
   folio: string;
   status: QuoteStatus;
   currentVersion: number;
+  companyId: string;
+  company: Ref & { legalName: string; rfc: string; active: boolean };
   contactId: string | null;
   contact: Contact | null;
   ownerId: string;

@@ -115,6 +115,7 @@ export default function QuotesPage() {
                       </span>
                       <span className="font-medium text-slate-700">{formatMoney(c.version.total, c.version.currency)}</span>
                       <span>Vigencia {formatDay(c.version.validUntil)}</span>
+                      <span>{c.company.name}</span>
                     </>
                   }
                 />
@@ -140,6 +141,7 @@ export default function QuotesPage() {
                         <Link href={`/cotizaciones/${c.id}`} className="link">
                           {c.folio} v{c.version.number}
                         </Link>
+                        <div className="mt-0.5 font-sans text-slate-500">{c.company.name}</div>
                       </td>
                       <td className="px-4 py-3">
                         <Link href={`/cotizaciones/${c.id}`} className="font-medium text-slate-900 hover:text-brand">

@@ -48,6 +48,7 @@ export async function resetDatabase(prisma: PrismaService) {
     'contacts',
     'accounts',
     'users',
+    'companies',
     'lead_sources',
     'disqualification_reasons',
   ];

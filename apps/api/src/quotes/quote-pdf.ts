@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import PDFDocument from 'pdfkit';
-import { amountInWords, formatDayOnly, formatInstantDate, type CompanySettings } from '@teczone/shared';
+import { amountInWords, formatDayOnly, formatInstantDate, type CompanyProfile } from '@teczone/shared';
 
 // Datos ya resueltos de una versión para imprimir (FR-06). Sin costos ni margen.
 export interface QuotePdfData {
@@ -16,7 +16,9 @@ export interface QuotePdfData {
   total: number;
   terms: string | null;
   notes: string | null;
-  company: CompanySettings;
+  company: CompanyProfile;
+  // Logo de la empresa; sin logo se usa el de TecZone.
+  logo: Buffer | null;
   client: { name: string; legalName: string | null; rfc: string | null; city: string | null };
   contact: { name: string; title: string | null; email: string | null; phone: string | null } | null;
   seller: { name: string; email: string };
@@ -42,11 +44,13 @@ export function renderQuotePdf(data: QuotePdfData): Promise<Buffer> {
   const bottom = () => doc.page.height - doc.page.margins.bottom - 30;
 
   // ---------- Encabezado ----------
-  doc.image(LOGO, left, 40, { fit: [120, 82] });
+  doc.image(data.logo ?? LOGO, left, 40, { fit: [120, 82] });
   const c = data.company;
   doc.font('Helvetica-Bold').fontSize(13).fillColor(NAVY).text(c.name, left + 170, 45, { width: width - 170, align: 'right' });
   doc.font('Helvetica').fontSize(8.5).fillColor(GRAY);
-  for (const line of [c.legalName, c.rfc && `RFC ${c.rfc}`, c.address, [c.phone, c.email].filter(Boolean).join(' · '), c.website]) {
+  const fiscal = [c.rfc && `RFC ${c.rfc}`, c.taxRegime && `Régimen ${c.taxRegime}`].filter(Boolean).join(' · ');
+  const address = [c.address, c.postalCode && `C.P. ${c.postalCode}`].filter(Boolean).join(', ');
+  for (const line of [c.legalName !== c.name && c.legalName, fiscal, address, [c.phone, c.email].filter(Boolean).join(' · '), c.website]) {
     if (line) doc.text(line, { width: width - 170, align: 'right' });
   }
 

@@ -40,3 +40,8 @@ export const QUOTE_FULL_ROLES = OPPORTUNITY_FULL_ROLES;
 export const QUOTE_APPROVER_ROLES: Role[] = ['ADMIN', 'GERENTE_COMERCIAL'];
 export const PRODUCT_READ_ROLES: Role[] = [...OPPORTUNITY_READ_ROLES, 'COMPRAS_OPERACIONES'];
 export const PRODUCT_WRITE_ROLES: Role[] = ['ADMIN', 'GERENTE_COMERCIAL', 'COMPRAS_OPERACIONES'];
+
+// Catálogo de empresas emisoras: lo administra la gerencia, que también asigna la empresa por
+// omisión de cada vendedor y elige con qué empresa cotizar; los ejecutivos usan la asignada.
+export const COMPANY_MANAGE_ROLES: Role[] = ['ADMIN', 'GERENTE_COMERCIAL'];
+export const COMPANY_PICK_ROLES: Role[] = ['ADMIN', 'GERENTE_COMERCIAL'];

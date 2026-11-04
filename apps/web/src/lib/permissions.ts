@@ -29,3 +29,7 @@ export const canSeeQuotes = canSeeOpportunities;
 export const canApproveQuotes = isManager;
 export const canSeeProducts = (u: SessionUser | null) => canSeeOpportunities(u) || has(u, ['COMPRAS_OPERACIONES']);
 export const canWriteProducts = (u: SessionUser | null) => has(u, ['ADMIN', 'GERENTE_COMERCIAL', 'COMPRAS_OPERACIONES']);
+// Empresas emisoras (apps/api/src/common/access.ts): la gerencia las administra, asigna la
+// empresa de cada vendedor y elige con cuál cotizar.
+export const canManageCompanies = isManager;
+export const canPickQuoteCompany = isManager;

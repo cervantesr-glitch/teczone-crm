@@ -9,6 +9,7 @@ import {
   QUOTE_STATUS_LABELS,
   REVISABLE_QUOTE_STATUSES,
 } from '@teczone/shared';
+import { Building, PackageSearch, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -17,7 +18,8 @@ import { MarginBadge, QuoteStatusBadge } from '@/components/quote-badge';
 import { Button, Card, ErrorText, Field, Input, LoadingPage, Modal, Select, Textarea } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { formatDate, formatDateTime, formatDay, formatMoney, toLocalInput } from '@/lib/format';
-import { canApproveQuotes, canEditOpportunity } from '@/lib/permissions';
+import type { Company } from '@/lib/companies';
+import { canApproveQuotes, canEditOpportunity, canPickQuoteCompany } from '@/lib/permissions';
 import type { Product, QuoteDetail, QuoteVersion } from '@/lib/quotes';
 import { useSession } from '@/lib/session';
 
@@ -29,6 +31,9 @@ interface Line {
   productId: string | null;
   sku: string | null;
   description: string;
+  // Datos internos del proveedor (partida libre); no se imprimen.
+  supplierSku: string;
+  supplierDescription: string;
   quantity: string;
   unitCost: string;
   // Se captura el margen; el precio se calcula a partir del costo. Solo sin costo se captura el precio.
@@ -38,6 +43,7 @@ interface Line {
 }
 
 interface Draft {
+  companyId: string;
   contactId: string;
   currency: 'MXN' | 'USD';
   exchangeRate: string;
@@ -50,6 +56,7 @@ interface Draft {
 const newKey = () => Math.random().toString(36).slice(2);
 
 const toDraft = (q: QuoteDetail, v: QuoteVersion): Draft => ({
+  companyId: q.companyId,
   contactId: q.contactId ?? '',
   currency: v.currency,
   exchangeRate: v.exchangeRate,
@@ -61,6 +68,8 @@ const toDraft = (q: QuoteDetail, v: QuoteVersion): Draft => ({
     productId: i.productId,
     sku: i.sku,
     description: i.description,
+    supplierSku: i.supplierSku ?? '',
+    supplierDescription: i.supplierDescription ?? '',
     quantity: String(Number(i.quantity)),
     unitCost: String(Number(i.unitCost)),
     marginPct: String(marginFromPrice(Number(i.unitCost), Number(i.unitPrice))),
@@ -151,6 +160,7 @@ export default function QuotePage() {
       const saved = await api<QuoteDetail>(`/quotes/${id}/draft`, {
         method: 'PUT',
         body: JSON.stringify({
+          companyId: draft.companyId,
           contactId: draft.contactId || null,
           currency: draft.currency,
           exchangeRate: Number(draft.exchangeRate),
@@ -161,6 +171,8 @@ export default function QuotePage() {
             productId: l.productId,
             sku: l.sku,
             description: l.description,
+            supplierSku: l.supplierSku.trim() || null,
+            supplierDescription: l.supplierDescription.trim() || null,
             ...numericLine(l),
           })),
         }),
@@ -201,7 +213,7 @@ export default function QuotePage() {
           <Link href={`/cuentas/${quote.opportunity.account.id}`} className="link">
             {quote.opportunity.account.name}
           </Link>{' '}
-          · Responsable: {quote.owner.name}
+          · Cotiza: {quote.company.name} · Responsable: {quote.owner.name}
           {quote.sentAt && ` · Primer envío ${formatDate(quote.sentAt)}`}
         </p>
       </div>
@@ -448,7 +460,8 @@ function Totals({
 function VersionView({ quote, version }: { quote: QuoteDetail; version: QuoteVersion }) {
   return (
     <Card title={`Versión ${version.number}`}>
-      <div className="mb-3 grid gap-2 text-sm sm:grid-cols-4">
+      <div className="mb-3 grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-5">
+        <Info label="Empresa que cotiza">{version.companySnapshot?.name ?? quote.company.name}</Info>
         <Info label="Contacto">{quote.contact?.name ?? '—'}</Info>
         <Info label="Vigencia">{formatDay(version.validUntil)}</Info>
         <Info label="Moneda / TC">
@@ -474,6 +487,9 @@ function VersionView({ quote, version }: { quote: QuoteDetail; version: QuoteVer
                 <td className="py-2 pr-2">
                   {i.sku && <span className="mr-1 font-mono text-xs text-slate-500">{i.sku}</span>}
                   <span className="whitespace-pre-line">{i.description}</span>
+                  {(i.supplierSku || i.supplierDescription) && (
+                    <SupplierSummary sku={i.supplierSku} description={i.supplierDescription} />
+                  )}
                 </td>
                 <td className="px-2 py-2 text-right">{Number(i.quantity)}</td>
                 <td className="px-2 py-2 text-right text-slate-500">{formatMoney(i.unitCost, version.currency)}</td>
@@ -533,12 +549,20 @@ function Editor({
   draft: Draft;
   onChange: (d: Draft) => void;
 }) {
+  const user = useSession();
   const [products, setProducts] = useState<Product[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [search, setSearch] = useState('');
+  const [supplierFor, setSupplierFor] = useState<string | null>(null);
+  const pickCompany = canPickQuoteCompany(user);
 
   useEffect(() => {
     api<Product[]>('/products').then(setProducts).catch(() => setProducts([]));
   }, []);
+
+  useEffect(() => {
+    if (pickCompany) api<Company[]>('/companies').then(setCompanies).catch(() => setCompanies([]));
+  }, [pickCompany]);
 
   const matches = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -575,6 +599,8 @@ function Editor({
           productId: p.id,
           sku: p.sku,
           description: p.name,
+          supplierSku: '',
+          supplierDescription: '',
           quantity: '1',
           unitCost: String(unitCost),
           marginPct: String(marginFromPrice(unitCost, unitPrice)),
@@ -596,6 +622,8 @@ function Editor({
           productId: null,
           sku: null,
           description: '',
+          supplierSku: '',
+          supplierDescription: '',
           quantity: '1',
           unitCost: '0',
           marginPct: String(Number(version.minMarginPct)),
@@ -610,7 +638,26 @@ function Editor({
 
   return (
     <Card title={`Versión ${version.number} · borrador`}>
-      <div className="mb-4 grid gap-3 sm:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {pickCompany ? (
+          <Field label="Empresa que cotiza" hint="Sus datos fiscales salen en el PDF">
+            <Select value={draft.companyId} onChange={(e) => onChange({ ...draft, companyId: e.target.value })}>
+              {!companies.some((c) => c.id === draft.companyId) && <option value={draft.companyId}>{quote.company.name}</option>}
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : (
+          <Field label="Empresa que cotiza" hint="Asignada por tu gerente">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <Building className="size-4 shrink-0 text-slate-400" aria-hidden />
+              <span className="truncate">{quote.company.name}</span>
+            </div>
+          </Field>
+        )}
         <Field label="Contacto">
           <Select value={draft.contactId} onChange={(e) => onChange({ ...draft, contactId: e.target.value })}>
             <option value="">Sin contacto</option>
@@ -663,6 +710,7 @@ function Editor({
                   <td className={cell}>
                     {l.sku && <div className="mb-1 font-mono text-xs text-slate-500">{l.sku}</div>}
                     <Textarea rows={1} value={l.description} onChange={(e) => setLine(l.key, { description: e.target.value })} aria-label="Descripción" />
+                    {!l.productId && <SupplierButton line={l} onClick={() => setSupplierFor(l.key)} />}
                   </td>
                   <td className={cell}>
                     <Input type="number" min={0} value={l.quantity} onChange={(e) => setLine(l.key, { quantity: e.target.value })} aria-label="Cantidad" />
@@ -750,6 +798,17 @@ function Editor({
         </Button>
       </div>
 
+      {supplierFor && (
+        <SupplierModal
+          line={draft.lines.find((l) => l.key === supplierFor)!}
+          onClose={() => setSupplierFor(null)}
+          onSave={(patch) => {
+            setLine(supplierFor, patch);
+            setSupplierFor(null);
+          }}
+        />
+      )}
+
       <div className="mt-4 flex flex-col gap-4 sm:flex-row">
         <div className="flex-1 space-y-3">
           <Field label="Términos y condiciones">
@@ -768,6 +827,99 @@ function Editor({
         />
       </div>
     </Card>
+  );
+}
+
+// Datos del proveedor en la partida libre: un botón discreto que abre una ventana, para no
+// cargar la tabla con columnas que solo usa compras.
+function SupplierButton({ line, onClick }: { line: Line; onClick: () => void }) {
+  const filled = line.supplierSku.trim() || line.supplierDescription.trim();
+  if (!filled) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="mt-1 inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs font-medium text-brand hover:bg-brand-50"
+      >
+        <PackageSearch className="size-3.5" aria-hidden />
+        Agregar datos del proveedor
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Editar datos del proveedor"
+      className="mt-1 flex w-full max-w-full items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-left text-xs text-slate-600 hover:border-brand/40 hover:bg-brand-50"
+    >
+      <PackageSearch className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+      <span className="shrink-0 font-medium text-slate-500">Proveedor:</span>
+      {line.supplierSku.trim() && <span className="shrink-0 font-mono">{line.supplierSku.trim()}</span>}
+      {line.supplierDescription.trim() && <span className="truncate text-slate-500">{line.supplierDescription.trim()}</span>}
+      <Pencil className="ml-auto size-3 shrink-0 text-slate-400" aria-hidden />
+    </button>
+  );
+}
+
+function SupplierModal({
+  line,
+  onClose,
+  onSave,
+}: {
+  line: Line;
+  onClose: () => void;
+  onSave: (patch: Pick<Line, 'supplierSku' | 'supplierDescription'>) => void;
+}) {
+  const [sku, setSku] = useState(line.supplierSku);
+  const [description, setDescription] = useState(line.supplierDescription);
+  return (
+    <Modal title="Datos del proveedor" description="Uso interno: no se imprimen en la cotización." onClose={onClose}>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSave({ supplierSku: sku.trim(), supplierDescription: description.trim() });
+        }}
+      >
+        {line.description.trim() && (
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
+            <div className="text-xs text-slate-500">En la cotización el cliente verá</div>
+            <div className="whitespace-pre-line text-slate-700">{line.description}</div>
+          </div>
+        )}
+        <Field label="SKU del proveedor" hint="Número de parte o clave con que lo pides al proveedor">
+          <Input value={sku} onChange={(e) => setSku(e.target.value)} maxLength={64} className="font-mono" autoFocus />
+        </Field>
+        <Field label="Descripción del proveedor" hint="Como aparece en la lista de precios o cotización del proveedor">
+          <Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
+        </Field>
+        {line.description.trim() && !description.trim() && (
+          <button type="button" className="text-xs font-medium text-brand hover:underline" onClick={() => setDescription(line.description)}>
+            Copiar la descripción de la cotización
+          </button>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit">Guardar</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function SupplierSummary({ sku, description }: { sku: string | null; description: string | null }) {
+  return (
+    <div className="mt-1 flex items-start gap-1.5 text-xs text-slate-500" title="Dato interno: no se imprime">
+      <PackageSearch className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <span>
+        <span className="font-medium">Proveedor:</span> {sku && <span className="font-mono">{sku}</span>}
+        {sku && description && ' · '}
+        {description && <span className="whitespace-pre-line">{description}</span>}
+      </span>
+    </div>
   );
 }
 
