@@ -3,6 +3,7 @@ export const ROLES = [
   'ADMIN',
   'DIRECCION',
   'GERENTE_COMERCIAL',
+  'SUPERVISOR',
   'EJECUTIVO_PYME',
   'EJECUTIVO_TECH',
   'PREVENTA',
@@ -16,6 +17,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrador del CRM',
   DIRECCION: 'Dirección',
   GERENTE_COMERCIAL: 'Gerente Comercial',
+  SUPERVISOR: 'Supervisor',
   EJECUTIVO_PYME: 'Ejecutivo PyME',
   EJECUTIVO_TECH: 'Ejecutivo Tech',
   PREVENTA: 'Ingeniero de Preventa',
@@ -24,4 +26,4 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 // Roles que ven todos los leads; el resto solo ve los propios o asignados.
-export const LEAD_FULL_ACCESS_ROLES: readonly Role[] = ['ADMIN', 'DIRECCION', 'GERENTE_COMERCIAL'];
+export const LEAD_FULL_ACCESS_ROLES: readonly Role[] = ['ADMIN', 'DIRECCION', 'GERENTE_COMERCIAL', 'SUPERVISOR'];

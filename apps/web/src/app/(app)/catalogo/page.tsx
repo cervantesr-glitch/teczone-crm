@@ -20,7 +20,7 @@ import {
 import { api, ApiError } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { CATEGORY_LABELS } from '@/lib/leads';
-import { canApproveQuotes, canWriteProducts } from '@/lib/permissions';
+import { canEditQuoteSettings, canWriteProducts } from '@/lib/permissions';
 import type { Product } from '@/lib/quotes';
 import { useSession } from '@/lib/session';
 
@@ -152,7 +152,7 @@ export default function CatalogPage() {
           </EmptyState>
         ))}
 
-      {canApproveQuotes(user) && <QuoteSettingsCard />}
+      {canEditQuoteSettings(user) && <QuoteSettingsCard />}
 
       {editing && (
         <ProductModal

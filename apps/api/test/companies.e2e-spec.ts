@@ -85,6 +85,22 @@ describe('Empresas emisoras (e2e)', () => {
     expect(list.body.items.every((q: { company: { id: string } }) => q.company.id === filial)).toBe(true);
   });
 
+  it('el supervisor elige empresa al cotizar pero no administra empresas ni parámetros', async () => {
+    await createUser(prisma, 'super@test.mx', PASS, ['SUPERVISOR'], 'Supervisor');
+    const supervisor = await loginCookies(app, 'super@test.mx', PASS);
+    const res = await api().post('/api/quotes').set('Cookie', supervisor).send({ opportunityId, companyId: teczone }).expect(201);
+    expect(res.body.company.id).toBe(teczone);
+    const saved = await api().put(`/api/quotes/${res.body.id}/draft`).set('Cookie', supervisor).send(draft({ companyId: filial })).expect(200);
+    expect(saved.body.company.id).toBe(filial);
+    await api().post('/api/companies').set('Cookie', supervisor).send(company('Otra', 'OTR040404GH4')).expect(403);
+    await api().put(`/api/companies/assignments/${sellerId}`).set('Cookie', supervisor).send({ companyId: teczone }).expect(403);
+    await api()
+      .put('/api/settings/quotes')
+      .set('Cookie', supervisor)
+      .send({ minMarginPct: 1, validityDays: 15, taxRate: 16, usdExchangeRate: 18, terms: '' })
+      .expect(403);
+  });
+
   it('lo emitido conserva los datos de la empresa aunque luego se editen', async () => {
     const created = await api().post('/api/quotes').set('Cookie', seller).send({ opportunityId }).expect(201);
     const id = created.body.id;
