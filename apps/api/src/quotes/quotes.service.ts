@@ -20,10 +20,12 @@ import {
   type QuoteListQuery,
   type QuoteOutcomeInput,
   type QuoteStatus,
+  type CompanyProfile,
   type SendQuoteInput,
 } from '@teczone/shared';
 import { Prisma, type Quote } from '@teczone/db';
 import { ActivitiesService } from '../activities/activities.service';
+import { CompaniesService, toProfile } from '../companies/companies.service';
 import type { AuthUser } from '../auth/types';
 import { hasAnyRole, QUOTE_APPROVER_ROLES, QUOTE_FULL_ROLES, QUOTE_WRITE_ROLES } from '../common/access';
 import { formatOpportunityFolio } from '../opportunities/opportunity-format';
@@ -34,6 +36,7 @@ import { SettingsService } from '../settings/settings.service';
 type Tx = Prisma.TransactionClient;
 
 const userRef = { select: { id: true, name: true } } as const;
+const companyRef = { select: { id: true, name: true, legalName: true, rfc: true, active: true } } as const;
 
 const CHANNEL_ACTIVITY = { CORREO: 'CORREO', WHATSAPP: 'WHATSAPP', REUNION: 'REUNION', OTRO: 'NOTA' } as const;
 
@@ -44,6 +47,7 @@ export class QuotesService {
     private readonly prisma: PrismaService,
     private readonly activities: ActivitiesService,
     private readonly settings: SettingsService,
+    private readonly companies: CompaniesService,
   ) {}
 
   private visibility(user: AuthUser): Prisma.QuoteWhereInput {
@@ -93,6 +97,7 @@ export class QuotesService {
             : undefined),
       opportunityId: query.opportunityId,
       ownerId: query.ownerId,
+      companyId: query.companyId,
       ...(query.q
         ? {
             OR: [
@@ -109,6 +114,7 @@ export class QuotesService {
         where,
         include: {
           owner: userRef,
+          company: { select: { id: true, name: true } },
           opportunity: { select: { id: true, name: true, account: { select: { id: true, name: true } } } },
           versions: {
             orderBy: { number: 'desc' },
@@ -172,6 +178,7 @@ export class QuotesService {
       where: { id, deletedAt: null, ...this.visibility(user) },
       include: {
         owner: userRef,
+        company: companyRef,
         contact: true,
         opportunity: {
           include: {
@@ -212,12 +219,14 @@ export class QuotesService {
       throw new ForbiddenException('Solo el responsable de la oportunidad o un gerente puede cotizar');
     }
     if (opp.closedAt) throw new BadRequestException('La oportunidad está cerrada');
+    const companyId = await this.companies.resolveForQuote(input.companyId, opp.ownerId, user);
     const s = await this.settings.quoteSettings();
     const currency = opp.currency ?? 'MXN';
     const quote = await this.prisma.$transaction(async (tx) => {
       const q = await tx.quote.create({
         data: {
           opportunityId: opp.id,
+          companyId,
           contactId: opp.primaryContactId,
           ownerId: opp.ownerId,
           createdById: user.id,
@@ -249,6 +258,9 @@ export class QuotesService {
       throw new BadRequestException('Solo se edita un borrador. Crea una versión nueva para cambiar la cotización.');
     }
     if (input.contactId) await this.assertContact(quote.opportunityId, input.contactId);
+    // Cambiar la empresa emisora es decisión de la gerencia (los ejecutivos usan la asignada).
+    const companyChanged = !!input.companyId && input.companyId !== quote.companyId;
+    if (companyChanged) await this.companies.assertPickable(input.companyId!, user);
     const version = await this.currentVersion(quote);
     const totals = computeQuoteTotals(input.items, Number(version.taxRate));
     await this.prisma.$transaction([
@@ -267,7 +279,10 @@ export class QuotesService {
           },
         },
       }),
-      this.prisma.quote.update({ where: { id }, data: { contactId: input.contactId ?? null } }),
+      this.prisma.quote.update({
+        where: { id },
+        data: { contactId: input.contactId ?? null, ...(companyChanged ? { companyId: input.companyId } : {}) },
+      }),
     ]);
     return this.get(id, user);
   }
@@ -320,8 +335,13 @@ export class QuotesService {
     const version = await this.currentVersion(quote);
     const folio = formatQuoteFolio(quote.folioNumber, version.number);
     const now = new Date();
+    const company = await this.prisma.company.findUniqueOrThrow({ where: { id: quote.companyId } });
     await this.prisma.$transaction(async (tx) => {
-      await tx.quoteVersion.update({ where: { id: version.id }, data: { issuedAt: now } });
+      // Lo emitido conserva los datos de la empresa de ese momento (FR-06).
+      await tx.quoteVersion.update({
+        where: { id: version.id },
+        data: { issuedAt: now, companySnapshot: { ...toProfile(company) } },
+      });
       await tx.quote.update({ where: { id }, data: { sentAt: quote.sentAt ?? now } });
       await this.writeTransition(tx, quote, 'ENVIADA', user, input.comment);
       await tx.activity.createMany({
@@ -466,6 +486,7 @@ export class QuotesService {
       where: { id, deletedAt: null, ...this.visibility(user) },
       include: {
         owner: { select: { name: true, email: true } },
+        company: true,
         contact: true,
         opportunity: { include: { account: true } },
         versions: {
@@ -496,7 +517,8 @@ export class QuotesService {
       total: Number(version.total),
       terms: version.terms,
       notes: version.notes,
-      company: await this.settings.companySettings(),
+      company: (version.companySnapshot as CompanyProfile | null) ?? toProfile(quote.company),
+      logo: quote.company.logo ? Buffer.from(quote.company.logo) : null,
       client: { name: account.name, legalName: account.legalName, rfc: account.rfc, city: account.city },
       contact: quote.contact,
       seller: quote.owner,

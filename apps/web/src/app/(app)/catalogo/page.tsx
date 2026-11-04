@@ -1,6 +1,6 @@
 'use client';
 
-import { CURRENCIES, PRODUCT_CATEGORIES, type CompanySettings, type QuoteSettings } from '@teczone/shared';
+import { CURRENCIES, PRODUCT_CATEGORIES, type QuoteSettings } from '@teczone/shared';
 import { Package, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -20,7 +20,7 @@ import {
 import { api, ApiError } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { CATEGORY_LABELS } from '@/lib/leads';
-import { canApproveQuotes, canWriteProducts } from '@/lib/permissions';
+import { canEditQuoteSettings, canWriteProducts } from '@/lib/permissions';
 import type { Product } from '@/lib/quotes';
 import { useSession } from '@/lib/session';
 
@@ -152,8 +152,7 @@ export default function CatalogPage() {
           </EmptyState>
         ))}
 
-      {canApproveQuotes(user) && <QuoteSettingsCard />}
-      {canApproveQuotes(user) && <CompanySettingsCard />}
+      {canEditQuoteSettings(user) && <QuoteSettingsCard />}
 
       {editing && (
         <ProductModal
@@ -327,66 +326,6 @@ function QuoteSettingsCard() {
       <div className="mt-3 flex items-center justify-end gap-3">
         {saved && <span className="text-sm text-emerald-700">Guardado</span>}
         <Button onClick={save}>Guardar parámetros</Button>
-      </div>
-    </Card>
-  );
-}
-
-const COMPANY_FIELDS: [keyof CompanySettings, string][] = [
-  ['name', 'Nombre comercial *'],
-  ['legalName', 'Razón social'],
-  ['rfc', 'RFC'],
-  ['address', 'Dirección'],
-  ['phone', 'Teléfono'],
-  ['email', 'Correo'],
-  ['website', 'Sitio web'],
-];
-
-// Datos del emisor en el encabezado del PDF de cotización (FR-06).
-function CompanySettingsCard() {
-  const [form, setForm] = useState<CompanySettings | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    api<CompanySettings>('/settings/company')
-      .then(setForm)
-      .catch((e) => setError(errorMessage(e, 'No se pudieron cargar los datos de la empresa')));
-  }, []);
-
-  if (!form) return error ? <ErrorText>{error}</ErrorText> : null;
-
-  async function save() {
-    try {
-      setForm(await api<CompanySettings>('/settings/company', { method: 'PUT', body: JSON.stringify(form) }));
-      setError(null);
-      setSaved(true);
-    } catch (e) {
-      setError(errorMessage(e, 'No se pudieron guardar los datos de la empresa'));
-    }
-  }
-
-  return (
-    <Card title="Datos de la empresa para el PDF">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {COMPANY_FIELDS.map(([k, label]) => (
-          <Field key={k} label={label}>
-            <Input
-              value={form[k]}
-              onChange={(e) => {
-                setSaved(false);
-                setForm({ ...form, [k]: e.target.value });
-              }}
-            />
-          </Field>
-        ))}
-      </div>
-      <ErrorText>{error}</ErrorText>
-      <div className="mt-3 flex items-center justify-end gap-3">
-        {saved && <span className="text-sm text-emerald-700">Guardado</span>}
-        <Button onClick={save} disabled={!form.name.trim()}>
-          Guardar datos
-        </Button>
       </div>
     </Card>
   );

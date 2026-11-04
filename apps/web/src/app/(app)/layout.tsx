@@ -2,6 +2,7 @@
 
 import { ROLE_LABELS } from '@teczone/shared';
 import {
+  Building,
   Building2,
   FileSignature,
   FileText,
@@ -22,7 +23,7 @@ import globo from '@/assets/globo.png';
 import { LoadingPage } from '@/components/ui';
 import { api } from '@/lib/api';
 import { initials } from '@/lib/format';
-import { canSeeAccounts, canSeeLeads, canSeeOpportunities, canSeeProducts, canSeeQuotes, isAdmin } from '@/lib/permissions';
+import { canManageCompanies, canSeeAccounts, canSeeLeads, canSeeOpportunities, canSeeProducts, canSeeQuotes, isAdmin } from '@/lib/permissions';
 import { SessionContext } from '@/lib/session';
 import type { SessionUser } from '@/lib/types';
 
@@ -56,6 +57,7 @@ const NAV: { title?: string; items: NavItem[] }[] = [
     title: 'Administración',
     items: [
       { href: '/catalogo', label: 'Catálogo', icon: Package, ready: true, show: canSeeProducts },
+      { href: '/empresas', label: 'Empresas', icon: Building, ready: true, show: canManageCompanies },
       { href: '/usuarios', label: 'Usuarios', icon: Users, ready: true, show: isAdmin },
     ],
   },

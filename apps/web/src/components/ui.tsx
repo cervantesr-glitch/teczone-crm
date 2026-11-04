@@ -259,7 +259,19 @@ export function LoadingPage({ label = 'Cargando…' }: { label?: string }) {
   );
 }
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({
+  title,
+  description,
+  onClose,
+  children,
+  size = 'md',
+}: {
+  title: string;
+  description?: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+  size?: 'md' | 'lg';
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -274,11 +286,14 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="max-h-[90vh] w-full max-w-md animate-pop-in overflow-y-auto rounded-2xl bg-white p-6 shadow-pop"
+        className={`max-h-[90vh] w-full ${size === 'lg' ? 'max-w-2xl' : 'max-w-md'} animate-pop-in overflow-y-auto rounded-2xl bg-white p-6 shadow-pop`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <div>
+            <h2 className="text-lg font-semibold">{title}</h2>
+            {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
+          </div>
           <button
             type="button"
             onClick={onClose}

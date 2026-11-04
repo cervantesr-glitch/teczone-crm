@@ -10,6 +10,7 @@ const publicSelect = {
   name: true,
   active: true,
   lastLoginAt: true,
+  defaultCompanyId: true,
   createdAt: true,
   roles: { select: { role: true } },
 } as const;
@@ -33,8 +34,11 @@ export class UsersService {
     const exists = await this.prisma.user.findUnique({ where: { email: input.email } });
     if (exists) throw new ConflictException('Ya existe un usuario con ese correo');
 
+    // Empresa por omisión: la primera activa; la gerencia la cambia en Empresas.
+    const company = await this.prisma.company.findFirst({ where: { active: true }, orderBy: { createdAt: 'asc' } });
     const user = await this.prisma.user.create({
       data: {
+        defaultCompanyId: company?.id ?? null,
         email: input.email,
         name: input.name,
         passwordHash: await argon2.hash(input.password),

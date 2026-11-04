@@ -7,6 +7,7 @@ import { ActivitiesModule } from './activities/activities.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './auth/auth.guard';
 import { RolesGuard } from './auth/roles.guard';
+import { CompaniesModule } from './companies/companies.module';
 import { CatalogsModule } from './catalogs/catalogs.module';
 import { HealthController } from './health.controller';
 import { LeadsModule } from './leads/leads.module';
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     AccountsModule,
     OpportunitiesModule,
     SettingsModule,
+    CompaniesModule,
     ProductsModule,
     QuotesModule,
   ],

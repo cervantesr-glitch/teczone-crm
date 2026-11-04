@@ -16,6 +16,7 @@ describe('Cotizaciones (e2e)', () => {
   let sellerId: string;
   let opportunityId: string;
   let contactId: string;
+  let companyId: string;
 
   const api = () => request(app.getHttpServer());
 
@@ -29,7 +30,15 @@ describe('Cotizaciones (e2e)', () => {
   });
 
   // Margen 20%: venta 1,000, costo 800.
-  const healthyItem = { description: 'Laptop', quantity: 1, unitCost: 800, unitPrice: 1000, discountPct: 0 };
+  const healthyItem = {
+    description: 'Laptop',
+    supplierSku: 'PROV-LAP-14',
+    supplierDescription: 'NB 14 i5 16GB 512SSD',
+    quantity: 1,
+    unitCost: 800,
+    unitPrice: 1000,
+    discountPct: 0,
+  };
   // Margen 5%: venta 1,000, costo 950.
   const thinItem = { description: 'Servidor', quantity: 1, unitCost: 950, unitPrice: 1000, discountPct: 0 };
 
@@ -41,6 +50,7 @@ describe('Cotizaciones (e2e)', () => {
   beforeAll(async () => {
     ({ app, prisma } = await createTestApp());
     await resetDatabase(prisma);
+    companyId = (await prisma.company.create({ data: { name: 'TecZone', legalName: 'TecZone SA de CV', rfc: 'TEC010101AB1' } })).id;
     sellerId = (await createUser(prisma, 'pyme@test.mx', PASS, ['EJECUTIVO_PYME'], 'Ejecutivo 1')).id;
     await createUser(prisma, 'pyme2@test.mx', PASS, ['EJECUTIVO_PYME'], 'Ejecutivo 2');
     await createUser(prisma, 'gerente@test.mx', PASS, ['GERENTE_COMERCIAL'], 'Gerente');
@@ -100,6 +110,8 @@ describe('Cotizaciones (e2e)', () => {
       expect(res.body.versions).toHaveLength(1);
       expect(Number(res.body.versions[0].minMarginPct)).toBe(15);
       expect(Number(res.body.versions[0].taxRate)).toBe(16);
+      // Sin empresa asignada se cotiza con la primera activa.
+      expect(res.body.company).toMatchObject({ id: companyId, name: 'TecZone' });
     });
 
     it('no deja cotizar la oportunidad de otro ejecutivo ni a preventa', async () => {
@@ -121,6 +133,8 @@ describe('Cotizaciones (e2e)', () => {
       expect(Number(v.total)).toBe(3248);
       expect(Number(v.marginPct)).toBe(3.57);
       expect(v.items).toHaveLength(2);
+      expect(v.items[0]).toMatchObject({ supplierSku: 'PROV-LAP-14', supplierDescription: 'NB 14 i5 16GB 512SSD' });
+      expect(v.items[1]).toMatchObject({ supplierSku: null, supplierDescription: null });
     });
 
     it('no envía a autorización sin partidas', async () => {
@@ -204,6 +218,7 @@ describe('Cotizaciones (e2e)', () => {
         .expect(200);
       expect(res.body.status).toBe('ENVIADA');
       expect(res.body.versions[0].issuedAt).toBeTruthy();
+      expect(res.body.versions[0].companySnapshot).toMatchObject({ name: 'TecZone', rfc: 'TEC010101AB1' });
       expect(res.body.activities).toHaveLength(2);
       expect(res.body.nextAction.subject).toBe('Llamar para confirmar');
       const opp = await prisma.opportunity.findUniqueOrThrow({ where: { id: opportunityId } });
@@ -220,6 +235,7 @@ describe('Cotizaciones (e2e)', () => {
       expect(res.body.currentVersion).toBe(2);
       expect(res.body.versions).toHaveLength(2);
       expect(res.body.versions[0].items).toHaveLength(1);
+      expect(res.body.versions[0].items[0].supplierSku).toBe('PROV-LAP-14');
       expect(res.body.versions[1].issuedAt).toBeTruthy();
 
       await api().post(`/api/quotes/${quoteId}/submit`).set('Cookie', seller).expect(200);
@@ -324,13 +340,6 @@ describe('Cotizaciones (e2e)', () => {
       await api().get(`/api/quotes/${id}/pdf`).set('Cookie', seller2).expect(404);
       await api().get(`/api/quotes/${id}/pdf?version=9`).set('Cookie', seller).expect(404);
     });
-
-    it('solo gerencia cambia los datos de la empresa', async () => {
-      const company = { name: 'TecZone', legalName: 'TecZone SA de CV', rfc: 'TEC010101AB1', address: 'Monterrey, NL', phone: '81 1234 5678', email: 'ventas@teczone.mx', website: 'teczone.mx' };
-      await api().put('/api/settings/company').set('Cookie', seller).send(company).expect(403);
-      const res = await api().put('/api/settings/company').set('Cookie', manager).send(company).expect(200);
-      expect(res.body.legalName).toBe('TecZone SA de CV');
-    });
   });
 
   describe('parámetros (NFR-08)', () => {
@@ -360,6 +369,7 @@ describe('Cotizaciones (e2e)', () => {
       await prisma.quote.create({
         data: {
           opportunityId,
+          companyId,
           ownerId,
           createdById: ownerId,
           status,
