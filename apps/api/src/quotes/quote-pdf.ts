@@ -25,7 +25,23 @@ export interface QuotePdfData {
   items: { sku: string | null; description: string; quantity: number; unitPrice: number; discountPct: number; lineTotal: number }[];
 }
 
-const LOGO = resolve(__dirname, '../../assets/logo.png');
+const ASSETS = resolve(__dirname, '../../assets');
+const LOGO = resolve(ASSETS, 'logo.png');
+// Certificaciones (encabezado) y marcas que distribuye TecZone (pie). Las imágenes son de baja resolución:
+// se imprimen a su tamaño aproximado y siempre con `fit` para no deformarlas.
+const BADGES = [
+  { file: resolve(ASSETS, 'hikvision-hcsa.png'), w: 38 },
+  { file: resolve(ASSETS, 'dell-partner.png'), w: 111 },
+];
+const BADGE_H = 38;
+const BRANDS = resolve(ASSETS, 'marcas.png');
+const BRANDS_W = 340;
+const BRANDS_H = Math.round((BRANDS_W * 49) / 411);
+// Pie: línea, tira de marcas y número de página, anclados al borde inferior de la hoja.
+const PAGE_NO_Y = 35;
+const brandsTop = (pageHeight: number) => pageHeight - PAGE_NO_Y - 8 - BRANDS_H;
+// Margen inferior que deja libre el pie, también cuando notas o términos largos saltan de página solos.
+const BOTTOM_MARGIN = PAGE_NO_Y + 8 + BRANDS_H + 14;
 const NAVY = '#0b2a6f';
 const GRAY = '#4b5563';
 const LIGHT = '#eef2f9';
@@ -34,14 +50,14 @@ const money = (n: number, currency: string) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(n);
 
 export function renderQuotePdf(data: QuotePdfData): Promise<Buffer> {
-  const doc = new PDFDocument({ size: 'LETTER', margin: 50, bufferPages: true, info: { Title: `Cotización ${data.folio}` } });
+  const doc = new PDFDocument({ size: 'LETTER', margins: { top: 50, left: 50, right: 50, bottom: BOTTOM_MARGIN }, bufferPages: true, info: { Title: `Cotización ${data.folio}` } });
   const chunks: Buffer[] = [];
   doc.on('data', (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((ok) => doc.on('end', () => ok(Buffer.concat(chunks))));
 
   const left = doc.page.margins.left;
   const width = doc.page.width - left - doc.page.margins.right;
-  const bottom = () => doc.page.height - doc.page.margins.bottom - 30;
+  const bottom = () => doc.page.height - doc.page.margins.bottom;
 
   // ---------- Encabezado ----------
   doc.image(data.logo ?? LOGO, left, 40, { fit: [120, 82] });
@@ -54,7 +70,16 @@ export function renderQuotePdf(data: QuotePdfData): Promise<Buffer> {
     if (line) doc.text(line, { width: width - 170, align: 'right' });
   }
 
-  let y = 135;
+  // Certificaciones alineadas a la derecha, debajo de los datos de la empresa.
+  const badgesY = Math.max(doc.y + 6, 92);
+  let badgeX = left + width;
+  for (const badge of [...BADGES].reverse()) {
+    badgeX -= badge.w;
+    doc.image(badge.file, badgeX, badgesY, { fit: [badge.w, BADGE_H], align: 'center', valign: 'center' });
+    badgeX -= 10;
+  }
+
+  let y = Math.max(135, badgesY + BADGE_H + 10);
   doc.rect(left, y, width, 46).fill(NAVY);
   doc.fillColor('white').font('Helvetica-Bold').fontSize(16).text('COTIZACIÓN', left + 12, y + 9);
   doc.font('Helvetica').fontSize(10).text(data.folio, left + 12, y + 29);
@@ -188,8 +213,11 @@ export function renderQuotePdf(data: QuotePdfData): Promise<Buffer> {
     // Sin margen inferior para que el pie no abra otra página.
     const margin = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
-    doc.font('Helvetica').fontSize(7.5).fillColor(GRAY).opacity(1);
-    doc.text(`${data.folio} · Página ${i - range.start + 1} de ${range.count}`, left, doc.page.height - 35, {
+    const brandsY = brandsTop(doc.page.height);
+    doc.moveTo(left, brandsY - 6).lineTo(left + width, brandsY - 6).strokeColor('#cbd5e1').lineWidth(0.5).stroke();
+    doc.opacity(1).image(BRANDS, left + (width - BRANDS_W) / 2, brandsY, { fit: [BRANDS_W, BRANDS_H] });
+    doc.font('Helvetica').fontSize(7.5).fillColor(GRAY);
+    doc.text(`${data.folio} · Página ${i - range.start + 1} de ${range.count}`, left, doc.page.height - PAGE_NO_Y, {
       width,
       align: 'right',
       lineBreak: false,
